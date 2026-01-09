@@ -216,7 +216,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:3000/checkins/history?days=30",
+							"raw": "http://localhost:3000/checkins/history?days=10",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -229,7 +229,7 @@
 							"query": [
 								{
 									"key": "days",
-									"value": "30"
+									"value": "10"
 								}
 							]
 						},
@@ -246,12 +246,7 @@
 					"name": "get users info",
 					"request": {
 						"method": "GET",
-						"header": [
-							{
-								"key": "X-User-Id",
-								"value": "<TON_USER_ID>"
-							}
-						],
+						"header": [],
 						"url": {
 							"raw": "http://localhost:3000/users/me",
 							"protocol": "http",
@@ -265,6 +260,64 @@
 							]
 						},
 						"description": "Generated from cURL:   curl -X GET http://localhost:3000/users/me \\\n  -H \"X-User-Id: <TON_USER_ID>\"\n"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "feedbacks",
+			"item": [
+				{
+					"name": "Create a Feedback",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "  {\n    \"category\": \"FACILITIES\",\n    \"feedbackText\": \"Le bureau serait plus agréable avec des plantes\",\n    \"solutionText\": \"Ajouter des plantes vertes dans l'open space\",\n    \"isAnonymous\": true\n  }",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:3000/feedbacks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"feedbacks"
+							]
+						},
+						"description": "Generated from cURL: curl -X POST http://localhost:3000/feedbacks \\\n-H \"Content-Type: application/json\" \\\n-d '{\n\"category\": \"bug\",\n\"message\": \"The button doesn't work on mobile.\"\n}'\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Feedbacks History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/feedbacks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"feedbacks"
+							]
+						}
 					},
 					"response": []
 				}
