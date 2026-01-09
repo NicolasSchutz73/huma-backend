@@ -49,6 +49,22 @@ const initDb = () => {
       if (err) console.error("Erreur table check_ins:", err);
       else console.log("Table 'check_ins' prête.");
     });
+
+    // 4. Création de la table feedbacks (boîte à feedbacks)
+    db.run(`CREATE TABLE IF NOT EXISTS feedbacks (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      category TEXT NOT NULL CHECK (category IN ('WORKLOAD', 'RELATIONS', 'MOTIVATION', 'ORGANIZATION', 'RECOGNITION', 'WORK_LIFE_BALANCE', 'FACILITIES')),
+      feedback_text TEXT NOT NULL,
+      solution_text TEXT NOT NULL,
+      status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'vu', 'en_cours', 'resolu', 'archive')),
+      is_anonymous INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`, (err) => {
+      if (err) console.error("Erreur table feedbacks:", err);
+      else console.log("Table 'feedbacks' prête.");
+    });
   });
 };
 

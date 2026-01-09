@@ -7,6 +7,7 @@ const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user_routes');
 const checkinRoutes = require('./routes/checkins');
+const feedbackRoutes = require('./routes/feedbacks');
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/checkins', checkinRoutes);
+app.use('/feedbacks', feedbackRoutes);
 
 // Hello World Route
 app.get('/', (req, res) => {
