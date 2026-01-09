@@ -138,30 +138,137 @@
 			]
 		},
 		{
-			"name": "get users info",
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "X-User-Id",
-						"value": "<TON_USER_ID>"
-					}
-				],
-				"url": {
-					"raw": "http://localhost:3000/users/me",
-					"protocol": "http",
-					"host": [
-						"localhost"
-					],
-					"port": "3000",
-					"path": [
-						"users",
-						"me"
-					]
+			"name": "météo du jour",
+			"item": [
+				{
+					"name": "Check \"Today's Status\"",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/checkins/today",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"checkins",
+								"today"
+							]
+						},
+						"description": "Generated from cURL:  curl -X GET http://localhost:3000/checkins/today "
+					},
+					"response": []
 				},
-				"description": "Generated from cURL:   curl -X GET http://localhost:3000/users/me \\\n  -H \"X-User-Id: <TON_USER_ID>\"\n"
-			},
-			"response": []
+				{
+					"name": "Create a Check-in",
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "+%Y-%m-%dT%H",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "%M",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\"moodValue\": 85,\n\"causes\": [\"WORKLOAD\", \"BALANCE\"],\n\"comment\": \"Super journée!\",\n\"timestamp\": \"2026-01-09T12:00:00Z\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:3000/checkins",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"checkins"
+							]
+						},
+						"description": "Generated from cURL: curl -X POST http://localhost:3000/checkins \\\n-H \"Content-Type: application/json\" \\\n-H \"X-User-Id: <YOUR_USER_ID>\" \\\n-d '{\n\"moodValue\": 85,\n\"causes\": [\"work\", \"family\"],\n\"comment\": \"Had a great day!\",\n\"timestamp\": \"'$(date -u +\"%Y-%m-%dT%H:%M:%SZ\")'\"\n}'\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Get History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/checkins/history?days=30",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"checkins",
+								"history"
+							],
+							"query": [
+								{
+									"key": "days",
+									"value": "30"
+								}
+							]
+						},
+						"description": "Generated from cURL: curl -X GET \"http://localhost:3000/checkins/history?days=30\" "
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "user",
+			"item": [
+				{
+					"name": "get users info",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "<TON_USER_ID>"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:3000/users/me",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"users",
+								"me"
+							]
+						},
+						"description": "Generated from cURL:   curl -X GET http://localhost:3000/users/me \\\n  -H \"X-User-Id: <TON_USER_ID>\"\n"
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"event": [

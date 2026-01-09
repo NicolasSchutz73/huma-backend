@@ -34,6 +34,21 @@ const initDb = () => {
       if (err) console.error("Erreur table users:", err);
       else console.log("Table 'users' prête.");
     });
+
+    // 3. Création de la table check_ins (météo du jour)
+    db.run(`CREATE TABLE IF NOT EXISTS check_ins (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      mood_value INTEGER NOT NULL CHECK (mood_value >= 1 AND mood_value <= 100),
+      causes TEXT,
+      comment TEXT,
+      timestamp DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`, (err) => {
+      if (err) console.error("Erreur table check_ins:", err);
+      else console.log("Table 'check_ins' prête.");
+    });
   });
 };
 
