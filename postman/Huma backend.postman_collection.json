@@ -1,0 +1,178 @@
+{
+	"info": {
+		"_postman_id": "b63d6dc2-4625-427d-88dd-a1ea9378b821",
+		"name": "Huma backend",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "37612242"
+	},
+	"item": [
+		{
+			"name": "onboarding",
+			"item": [
+				{
+					"name": "register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"",
+									"if (jsonData.user && jsonData.user.id) {",
+									"    pm.collectionVariables.set(\"current_user_id\", jsonData.user.id);",
+									"    console.log(\"User ID sauvegardé : \" + jsonData.user.id);",
+									"}",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"email\": \"test2@example.com\"}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:3000/auth/register",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Generated from cURL: curl -X POST http://localhost:3000/auth/register -H \"Content-Type: application/json\" -d '{\"email\": \"test@example.com\"}'"
+					},
+					"response": []
+				},
+				{
+					"name": "update info (nom prénom)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"first_name\": \"Jean\", \"last_name\": \"Dupont\"}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:3000/users/me/info",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"users",
+								"me",
+								"info"
+							]
+						},
+						"description": "Generated from cURL: curl -X PUT http://localhost:3000/users/me/info \\\n-H \"Content-Type: application/json\" \\\n-H \"X-User-Id: VOTRE_UUID\" \\\n-d '{\"first_name\": \"Jean\", \"last_name\": \"Dupont\"}'\n"
+					},
+					"response": []
+				},
+				{
+					"name": "questions",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\"work_style\": \"Autonome\",\n\"motivation_type\": \"Apprentissage\",\n\"stress_source\": \"Délais\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:3000/users/me/onboarding",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"users",
+								"me",
+								"onboarding"
+							]
+						},
+						"description": "Generated from cURL: curl -X PUT http://localhost:3000/users/me/onboarding \\\n-H \"Content-Type: application/json\" \\\n-H \"X-User-Id: <TON_USER_ID>\" \\\n-d '{\n\"work_style\": \"Autonome\",\n\"motivation_type\": \"Apprentissage\",\n\"stress_source\": \"Délais\"\n}'\n"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					"if (pm.collectionVariables.get(\"current_user_id\")) {",
+					"    pm.request.headers.add({",
+					"        key: \"X-User-Id\",",
+					"        value: pm.collectionVariables.get(\"current_user_id\")",
+					"    });",
+					"}",
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "current_user_id",
+			"value": "",
+			"type": "default"
+		}
+	]
+}
