@@ -136,6 +136,32 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "get users info",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-User-Id",
+						"value": "<TON_USER_ID>"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:3000/users/me",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"users",
+						"me"
+					]
+				},
+				"description": "Generated from cURL:   curl -X GET http://localhost:3000/users/me \\\n  -H \"X-User-Id: <TON_USER_ID>\"\n"
+			},
+			"response": []
 		}
 	],
 	"event": [

@@ -6,6 +6,7 @@ const authenticate = require('../middleware/auth');
 console.log('Loading users routes...');
 
 // Toutes les routes de ce fichier sont protégées par authenticate
+router.get('/me', authenticate, userController.getUserInfo);
 router.put('/me/onboarding', authenticate, userController.completeOnboarding);
 router.put('/me/test', (req, res) => res.json({msg: "Test OK"}));
 router.put('/me/info', authenticate, userController.updateUserInfo);
