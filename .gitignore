@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+.vite/
+.npm/
+.eslintcache
+
+# Build output
+/dist/
+build/
+out/
+public/build/
+*.tgz
+
+# IDEs and editors
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
+
+# Env files
+.env
+.env.*
+
+# Runtime data / DB
+*.sqlite
+*.sqlite3
+*.db
+*.pid
+*.seed
