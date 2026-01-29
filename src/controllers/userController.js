@@ -1,101 +1,39 @@
-const db = require('../db');
+const userService = require('../services/userService');
 
-const updateUserInfo = (req, res) => {
-  const { first_name, last_name } = req.body;
-  const userId = req.user.id; // Vient du middleware auth
-
-  if (!first_name || !last_name) {
-    return res.status(400).json({ error: 'First name and last name are required' });
-  }
-
-  const sql = `
-    UPDATE users 
-    SET first_name = ?, last_name = ?, updated_at = datetime('now')
-    WHERE id = ?
-  `;
-
-  db.run(sql, [first_name, last_name, userId], function (err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-
-    // Récupérer l'utilisateur mis à jour pour le renvoyer
-    db.get('SELECT id, email, first_name, last_name FROM users WHERE id = ?', [userId], (err, row) => {
-        if (err) return res.status(500).json({error: "Update success but fetch failed"});
-        
-        res.status(200).json({
-            message: 'User info updated successfully',
-            user: row
-        });
+const updateUserInfo = async (req, res, next) => {
+  try {
+    const result = await userService.updateUserInfo({
+      userId: req.user.id,
+      firstName: req.body.first_name,
+      lastName: req.body.last_name
     });
-  });
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
 };
 
-const completeOnboarding = (req, res) => {
-  let { work_style, motivation_type, stress_source } = req.body;
-  const userId = req.user.id;
-
-  // Normalisation des accents (accepte les versions avec ou sans accent)
-  const normalizeMap = {
-    'Structure': 'Structuré',
-    'Equilibre': 'Équilibre',
-    'Delais': 'Délais'
-  };
-
-  work_style = normalizeMap[work_style] || work_style;
-  motivation_type = normalizeMap[motivation_type] || motivation_type;
-  stress_source = normalizeMap[stress_source] || stress_source;
-
-  const validWorkStyles = ['Collaboratif', 'Autonome', 'Structuré', 'Flexible'];
-  const validMotivationTypes = ['Reconnaissance', 'Apprentissage', 'Impact', 'Équilibre'];
-  const validStressSources = ['Charge de travail', 'Relations', 'Incertitude', 'Délais'];
-
-  if (!validWorkStyles.includes(work_style)) {
-    return res.status(400).json({ error: `Invalid work_style. Must be one of: ${validWorkStyles.join(', ')}` });
-  }
-  if (!validMotivationTypes.includes(motivation_type)) {
-    return res.status(400).json({ error: `Invalid motivation_type. Must be one of: ${validMotivationTypes.join(', ')}` });
-  }
-  if (!validStressSources.includes(stress_source)) {
-    return res.status(400).json({ error: `Invalid stress_source. Must be one of: ${validStressSources.join(', ')}` });
-  }
-
-  const sql = `
-    UPDATE users 
-    SET work_style = ?, motivation_type = ?, stress_source = ?, onboarding_completed = 1, updated_at = datetime('now')
-    WHERE id = ?
-  `;
-
-  db.run(sql, [work_style, motivation_type, stress_source, userId], function (err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-
-    res.status(200).json({
-      message: 'Onboarding completed successfully'
+const completeOnboarding = async (req, res, next) => {
+  try {
+    const result = await userService.completeOnboarding({
+      userId: req.user.id,
+      workStyle: req.body.work_style,
+      motivationType: req.body.motivation_type,
+      stressSource: req.body.stress_source
     });
-  });
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
 };
 
-const getUserInfo = (req, res) => {
-  const userId = req.user.id;
-
-  const sql = `
-    SELECT id, email, first_name, last_name, role, organization_id, onboarding_completed, work_style, motivation_type, stress_source
-    FROM users 
-    WHERE id = ?
-  `;
-
-  db.get(sql, [userId], (err, row) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    if (!row) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.status(200).json(row);
-  });
+const getUserInfo = async (req, res, next) => {
+  try {
+    const result = await userService.getUserInfo({ userId: req.user.id });
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
 };
 
 module.exports = {

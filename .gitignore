@@ -31,3 +31,4 @@ public/build/
 *.db
 *.pid
 *.seed
+.grepai/

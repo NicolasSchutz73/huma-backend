@@ -1,23 +1,24 @@
-const db = require('../db');
+const db = require('../db/query');
+const { AppError } = require('../utils/errors');
 
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const userId = req.headers['x-user-id'];
 
   if (!userId) {
-    return res.status(401).json({ error: 'Unauthorized: Missing X-User-Id header' });
+    return next(new AppError('Unauthorized: Missing X-User-Id header', 401, 'UNAUTHORIZED'));
   }
 
-  db.get('SELECT * FROM users WHERE id = ?', [userId], (err, row) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error' });
-    }
+  try {
+    const row = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
     if (!row) {
-      return res.status(401).json({ error: 'Unauthorized: Invalid User ID' });
+      return next(new AppError('Unauthorized: Invalid User ID', 401, 'UNAUTHORIZED'));
     }
 
     req.user = row;
     next();
-  });
+  } catch (err) {
+    next(err);
+  }
 };
 
 module.exports = authenticate;
