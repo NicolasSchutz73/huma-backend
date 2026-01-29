@@ -1,0 +1,602 @@
+{
+  "info": {
+    "_postman_id": "b63d6dc2-4625-427d-88dd-a1ea9378b821",
+    "name": "Huma backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "37612242"
+  },
+  "item": [
+    {
+      "name": "auth",
+      "item": [
+        {
+          "name": "register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.user && jsonData.user.id) {",
+                  "  pm.collectionVariables.set(\"current_user_id\", jsonData.user.id);",
+                  "  console.log(\"User ID sauvegardé : \" + jsonData.user.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"test2@example.com\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.user && jsonData.user.id) {",
+                  "  pm.collectionVariables.set(\"current_user_id\", jsonData.user.id);",
+                  "  console.log(\"User ID sauvegardé : \" + jsonData.user.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"test2@example.com\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "users",
+      "item": [
+        {
+          "name": "get users info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update info (nom prénom)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"first_name\": \"Jean\", \"last_name\": \"Dupont\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me/info",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "info"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "questions (onboarding)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"work_style\": \"Autonome\",\n  \"motivation_type\": \"Apprentissage\",\n  \"stress_source\": \"Délais\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me/onboarding",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "onboarding"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Test Endpoint (No Auth)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me/test",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "test"
+              ]
+            },
+            "description": "Test endpoint that returns {msg: 'Test OK'} with no authentication."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "checkins (météo du jour)",
+      "item": [
+        {
+          "name": "Check today's status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/checkins/today",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkins",
+                "today"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create a check-in",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"moodValue\": 85,\n  \"causes\": [\"WORKLOAD\", \"BALANCE\"],\n  \"comment\": \"Super journée!\",\n  \"timestamp\": \"2026-01-29T12:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/checkins",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkins"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get history",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/checkins/history?days=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkins",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Weekly summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/checkins/weekly-summary?weekStart=2026-01-26",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkins",
+                "weekly-summary"
+              ],
+              "query": [
+                {
+                  "key": "weekStart",
+                  "value": "2026-01-26"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "feedbacks",
+      "item": [
+        {
+          "name": "Create a feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"FACILITIES\",\n  \"feedbackText\": \"Le bureau serait plus agréable avec des plantes\",\n  \"solutionText\": \"Ajouter des plantes vertes dans l'open space\",\n  \"isAnonymous\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/feedbacks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedbacks"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get feedbacks history",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/feedbacks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedbacks"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "team",
+      "item": [
+        {
+          "name": "Create team",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.team && jsonData.team.id) {",
+                  "  pm.collectionVariables.set(\"current_team_id\", jsonData.team.id);",
+                  "  console.log(\"Team ID sauvegardé : \" + jsonData.team.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My New Team\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/team",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add team member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teamId\": \"{{current_team_id}}\",\n  \"userId\": \"{{current_user_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/team/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "members"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get team stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/stats?teamId={{current_team_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "stats"
+              ],
+              "query": [
+                {
+                  "key": "teamId",
+                  "value": "{{current_team_id}}",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Checks the health of the server."
+      },
+      "response": []
+    },
+    {
+      "name": "root",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            ""
+          ]
+        },
+        "description": "Returns 'Hello World!' from the root endpoint."
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript"
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "default"
+    },
+    {
+      "key": "current_user_id",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "current_team_id",
+      "value": "",
+      "type": "default"
+    }
+  ]
+}

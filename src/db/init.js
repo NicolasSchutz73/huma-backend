@@ -12,7 +12,20 @@ const initDb = () => {
       else console.log("Table 'organizations' prête.");
     });
 
-    // 2. Création de la table users
+    // 2. Création de la table teams
+    db.run(`CREATE TABLE IF NOT EXISTS teams (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+    )`, (err) => {
+      if (err) console.error("Erreur table teams:", err);
+      else console.log("Table 'teams' prête.");
+    });
+
+    // 3. Création de la table users
     db.run(`CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       organization_id TEXT NOT NULL,
@@ -35,7 +48,21 @@ const initDb = () => {
       else console.log("Table 'users' prête.");
     });
 
-    // 3. Création de la table check_ins (météo du jour)
+    // 4. Création de la table team_members
+    db.run(`CREATE TABLE IF NOT EXISTS team_members (
+      id TEXT PRIMARY KEY,
+      team_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(team_id, user_id),
+      FOREIGN KEY(team_id) REFERENCES teams(id) ON DELETE CASCADE,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`, (err) => {
+      if (err) console.error("Erreur table team_members:", err);
+      else console.log("Table 'team_members' prête.");
+    });
+
+    // 5. Création de la table check_ins (météo du jour)
     db.run(`CREATE TABLE IF NOT EXISTS check_ins (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
