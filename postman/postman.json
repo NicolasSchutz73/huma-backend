@@ -345,6 +345,167 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Monthly summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/checkins/weekly-summary?period=month&date=2026-01",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkins",
+                "weekly-summary"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                },
+                {
+                  "key": "date",
+                  "value": "2026-01"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Yearly summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/checkins/weekly-summary?period=year&date=2026",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkins",
+                "weekly-summary"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "year"
+                },
+                {
+                  "key": "date",
+                  "value": "2026"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Weekly factors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/checkins/weekly-factors?weekStart=2026-01-26",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkins",
+                "weekly-factors"
+              ],
+              "query": [
+                {
+                  "key": "weekStart",
+                  "value": "2026-01-26"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Monthly factors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/checkins/weekly-factors?period=month&date=2026-01",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkins",
+                "weekly-factors"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                },
+                {
+                  "key": "date",
+                  "value": "2026-01"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Yearly factors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{current_user_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/checkins/weekly-factors?period=year&date=2026",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkins",
+                "weekly-factors"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "year"
+                },
+                {
+                  "key": "date",
+                  "value": "2026"
+                }
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
