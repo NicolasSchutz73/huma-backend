@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
 const initDb = require('./db/init');
 const requestId = require('./middleware/requestId');
 const notFound = require('./middleware/notFound');
@@ -16,6 +18,26 @@ const teamRoutes = require('./routes/team');
 const app = express();
 
 initDb();
+
+const swaggerSpec = swaggerJsdoc({
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Huma API',
+      version: '1.0.0'
+    },
+    components: {
+      securitySchemes: {
+        UserIdHeader: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-User-Id'
+        }
+      }
+    }
+  },
+  apis: [`${__dirname}/routes/*.js`]
+});
 
 // Middleware
 app.disable('x-powered-by');
@@ -34,6 +56,7 @@ app.use('/users', userRoutes);
 app.use('/checkins', checkinRoutes);
 app.use('/feedbacks', feedbackRoutes);
 app.use('/team', teamRoutes);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Hello World Route
 app.get('/', (req, res) => {

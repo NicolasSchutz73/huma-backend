@@ -1,7 +1,28 @@
-Projet Huma
+Projet Huma - Backend
 
-backend - Documentation
+API Express pour Huma.
 
-## PostgreSQL (Supabase)
-- Define `DATABASE_URL` with your Supabase connection string.
-- Optional: set `DATABASE_SSL=true` if your URL does not include `sslmode=require`.
+## Demarrage rapide
+```bash
+npm install
+npm run dev
+```
+
+## Commandes
+```bash
+# dev (nodemon)
+npm run dev
+
+# prod
+npm start
+
+# tests (placeholder)
+npm test
+```
+
+## API
+Base URL (Render): `https://huma-backend-a0wj.onrender.com`
+
+## Docs API (Swagger)
+- Local: `http://localhost:3000/api-docs` (ou `http://localhost:<PORT>/api-docs`)
+- Dev/Prod: `https://huma-backend-a0wj.onrender.com/api-docs`
