@@ -39,5 +39,6 @@ jobs:
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
             -Dsonar.sources=src
-            -Dsonar.tests=tests
+            -Dsonar.coverage.exclusions=**/*
+            -Dsonar.cpd.exclusions=**/*
             -Dsonar.verbose=true

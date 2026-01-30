@@ -14,7 +14,7 @@ const validateRow = (schema, row) => {
 const getByUserAndDate = async (userId, dateStr) => {
   const sql = `
     SELECT id FROM check_ins
-    WHERE user_id = $1 AND DATE("timestamp") = DATE($2)
+    WHERE user_id = $1 AND DATE("timestamp" AT TIME ZONE 'UTC') = DATE($2)
     LIMIT 1
   `;
   const row = await db.get(sql, [userId, dateStr]);
@@ -32,9 +32,10 @@ const createCheckin = async ({ id, userId, moodValue, causesJson, comment, times
 
 const getHistoryByDays = async (userId, days) => {
   const sql = `
-    SELECT DATE("timestamp") as date, mood_value::int as "moodValue"
+    SELECT ("timestamp" AT TIME ZONE 'UTC')::date::text as date, mood_value::int as "moodValue"
     FROM check_ins
-    WHERE user_id = $1 AND "timestamp" >= (NOW() - ($2 * INTERVAL '1 day'))
+    WHERE user_id = $1
+      AND ("timestamp" AT TIME ZONE 'UTC') >= ((NOW() AT TIME ZONE 'UTC') - ($2 * INTERVAL '1 day'))
     ORDER BY "timestamp" DESC
   `;
   const rows = await db.all(sql, [userId, parseInt(days)]);
@@ -46,10 +47,11 @@ const getHistoryByDays = async (userId, days) => {
 
 const getByDateRange = async (userId, startDate, endDate) => {
   const sql = `
-    SELECT DATE("timestamp") as date, mood_value::int as "moodValue"
+    SELECT ("timestamp" AT TIME ZONE 'UTC')::date::text as date, mood_value::int as "moodValue"
     FROM check_ins
-    WHERE user_id = $1 AND DATE("timestamp") BETWEEN DATE($2) AND DATE($3)
-    ORDER BY DATE("timestamp") ASC
+    WHERE user_id = $1
+      AND ("timestamp" AT TIME ZONE 'UTC')::date BETWEEN $2::date AND $3::date
+    ORDER BY ("timestamp" AT TIME ZONE 'UTC')::date ASC
   `;
   const rows = await db.all(sql, [userId, startDate, endDate]);
   rows.forEach((row) => {
@@ -58,9 +60,30 @@ const getByDateRange = async (userId, startDate, endDate) => {
   return rows;
 };
 
+const getByDateRangeWithCauses = async (userId, startDate, endDate) => {
+  const sql = `
+    SELECT ("timestamp" AT TIME ZONE 'UTC')::date::text as date,
+           mood_value::int as "moodValue",
+           causes
+    FROM check_ins
+    WHERE user_id = $1
+      AND ("timestamp" AT TIME ZONE 'UTC')::date BETWEEN $2::date AND $3::date
+    ORDER BY ("timestamp" AT TIME ZONE 'UTC')::date ASC
+  `;
+  const rows = await db.all(sql, [userId, startDate, endDate]);
+  rows.forEach((row) => {
+    validateRow(Checkin.pick({ mood_value: true, causes: true }), {
+      mood_value: row.moodValue,
+      causes: row.causes
+    });
+  });
+  return rows;
+};
+
 module.exports = {
   getByUserAndDate,
   createCheckin,
   getHistoryByDays,
-  getByDateRange
+  getByDateRange,
+  getByDateRangeWithCauses
 };

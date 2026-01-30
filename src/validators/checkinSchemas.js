@@ -22,6 +22,11 @@ const weeklySummary = z.object({
     weekStart: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    period: z.enum(['week', 'month', 'year']).optional(),
+    date: z
+      .string()
+      .regex(/^\d{4}(-\d{2}(-\d{2})?)?$/)
       .optional()
   })
 });
@@ -29,5 +34,6 @@ const weeklySummary = z.object({
 module.exports = {
   createCheckin,
   history,
-  weeklySummary
+  weeklySummary,
+  weeklyFactors: weeklySummary
 };

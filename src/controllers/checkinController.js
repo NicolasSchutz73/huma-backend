@@ -40,7 +40,23 @@ const getWeeklySummary = async (req, res, next) => {
   try {
     const result = await checkinService.getWeeklySummary({
       userId: req.user.id,
-      weekStart: req.query.weekStart
+      weekStart: req.query.weekStart,
+      period: req.query.period,
+      date: req.query.date
+    });
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getWeeklyFactors = async (req, res, next) => {
+  try {
+    const result = await checkinService.getWeeklyFactors({
+      userId: req.user.id,
+      weekStart: req.query.weekStart,
+      period: req.query.period,
+      date: req.query.date
     });
     res.status(200).json(result);
   } catch (err) {
@@ -53,4 +69,5 @@ module.exports = {
   createCheckin,
   getHistory,
   getWeeklySummary,
+  getWeeklyFactors,
 };
