@@ -1,0 +1,15 @@
+name: Deploy to Render on Tag
+
+on:
+  push:
+    tags:
+      - 'v*' # Se déclenche sur v1.0, v2.3.4, etc.
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy
+        # On utilise curl pour appeler le webhook de Render
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
