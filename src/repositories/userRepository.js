@@ -14,7 +14,7 @@ const validateRow = (schema, row) => {
 const createUser = async ({ id, email, organizationId, role }) => {
   const sql = `
     INSERT INTO users (id, email, organization_id, role, created_at, updated_at)
-    VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+    VALUES ($1, $2, $3, $4, NOW(), NOW())
   `;
   await db.run(sql, [id, email, organizationId, role]);
 };
@@ -23,7 +23,7 @@ const getByEmail = async (email) => {
   const sql = `
     SELECT id, email, role, organization_id, first_name, last_name, onboarding_completed
     FROM users
-    WHERE email = ?
+    WHERE email = $1
   `;
   const row = await db.get(sql, [email]);
   validateRow(
@@ -45,7 +45,7 @@ const getById = async (userId) => {
   const sql = `
     SELECT id, email, first_name, last_name, role, organization_id, onboarding_completed, work_style, motivation_type, stress_source
     FROM users
-    WHERE id = ?
+    WHERE id = $1
   `;
   const row = await db.get(sql, [userId]);
   validateRow(
@@ -67,7 +67,7 @@ const getById = async (userId) => {
 };
 
 const getIdById = async (userId) => {
-  const row = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
+  const row = await db.get('SELECT id FROM users WHERE id = $1', [userId]);
   validateRow(User.pick({ id: true }), row);
   return row ? row.id : null;
 };
@@ -75,8 +75,8 @@ const getIdById = async (userId) => {
 const updateNames = async ({ userId, firstName, lastName }) => {
   const sql = `
     UPDATE users
-    SET first_name = ?, last_name = ?, updated_at = datetime('now')
-    WHERE id = ?
+    SET first_name = $1, last_name = $2, updated_at = NOW()
+    WHERE id = $3
   `;
   await db.run(sql, [firstName, lastName, userId]);
 };
@@ -84,8 +84,8 @@ const updateNames = async ({ userId, firstName, lastName }) => {
 const updateOnboarding = async ({ userId, workStyle, motivationType, stressSource }) => {
   const sql = `
     UPDATE users
-    SET work_style = ?, motivation_type = ?, stress_source = ?, onboarding_completed = 1, updated_at = datetime('now')
-    WHERE id = ?
+    SET work_style = $1, motivation_type = $2, stress_source = $3, onboarding_completed = TRUE, updated_at = NOW()
+    WHERE id = $4
   `;
   await db.run(sql, [workStyle, motivationType, stressSource, userId]);
 };

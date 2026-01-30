@@ -18,7 +18,7 @@ const getAnyOrganizationId = async () => {
 };
 
 const createOrganization = async (id, name) => {
-  await db.run('INSERT INTO organizations (id, name) VALUES (?, ?)', [id, name]);
+  await db.run('INSERT INTO organizations (id, name) VALUES ($1, $2)', [id, name]);
 };
 
 module.exports = {

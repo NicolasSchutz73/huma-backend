@@ -9,7 +9,7 @@ const authenticate = async (req, res, next) => {
   }
 
   try {
-    const row = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
+    const row = await db.get('SELECT * FROM users WHERE id = $1', [userId]);
     if (!row) {
       return next(new AppError('Unauthorized: Invalid User ID', 401, 'UNAUTHORIZED'));
     }

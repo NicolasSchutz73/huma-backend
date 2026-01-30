@@ -3,6 +3,9 @@ const { Team } = require('../models/team');
 const { TeamMember } = require('../models/teamMember');
 const { AppError } = require('../utils/errors');
 
+const buildPlaceholders = (count, startIndex = 1) =>
+  Array.from({ length: count }, (_, index) => `$${index + startIndex}`).join(', ');
+
 const validateRow = (schema, row) => {
   if (!row) return row;
   const result = schema.safeParse(row);
@@ -15,7 +18,7 @@ const validateRow = (schema, row) => {
 const getMemberIdsByTeam = async (teamId) => {
   const sql = `
     SELECT user_id FROM team_members
-    WHERE team_id = ?
+    WHERE team_id = $1
   `;
   const rows = await db.all(sql, [teamId]);
   rows.forEach((row) => validateRow(TeamMember.pick({ user_id: true }), row));
@@ -25,7 +28,7 @@ const getMemberIdsByTeam = async (teamId) => {
 const getFirstTeamIdByUser = async (userId) => {
   const sql = `
     SELECT team_id FROM team_members
-    WHERE user_id = ?
+    WHERE user_id = $1
     LIMIT 1
   `;
   const row = await db.get(sql, [userId]);
@@ -36,57 +39,66 @@ const getFirstTeamIdByUser = async (userId) => {
 const isMember = async (teamId, userId) => {
   const sql = `
     SELECT 1 FROM team_members
-    WHERE team_id = ? AND user_id = ?
+    WHERE team_id = $1 AND user_id = $2
   `;
   const row = await db.get(sql, [teamId, userId]);
   return !!row;
 };
 
 const getTeamById = async (teamId) => {
-  const row = await db.get('SELECT id FROM teams WHERE id = ?', [teamId]);
+  const row = await db.get('SELECT id FROM teams WHERE id = $1', [teamId]);
   validateRow(Team.pick({ id: true }), row);
   return row ? row.id : null;
 };
 
 const createTeam = async ({ id, organizationId, name }) => {
-  const sql = `INSERT INTO teams (id, organization_id, name) VALUES (?, ?, ?)`;
+  const sql = `INSERT INTO teams (id, organization_id, name) VALUES ($1, $2, $3)`;
   await db.run(sql, [id, organizationId, name]);
 };
 
 const addMember = async ({ id, teamId, userId }) => {
-  const sql = `INSERT INTO team_members (id, team_id, user_id) VALUES (?, ?, ?)`;
+  const sql = `INSERT INTO team_members (id, team_id, user_id) VALUES ($1, $2, $3)`;
   await db.run(sql, [id, teamId, userId]);
 };
 
 const getTodayStats = async ({ memberIds, today }) => {
-  const placeholders = memberIds.map(() => '?').join(',');
+  if (!memberIds || memberIds.length === 0) {
+    return { avgMood: null, count: 0 };
+  }
+  const placeholders = buildPlaceholders(memberIds.length);
   const sql = `
-    SELECT AVG(mood_value) as avgMood, COUNT(*) as count
+    SELECT AVG(mood_value)::float as avgMood, COUNT(*)::int as count
     FROM check_ins
-    WHERE user_id IN (${placeholders}) AND date(timestamp) = date(?)
+    WHERE user_id IN (${placeholders}) AND DATE("timestamp") = DATE($${memberIds.length + 1})
   `;
   return db.get(sql, [...memberIds, today]);
 };
 
 const getTodayCauses = async ({ memberIds, today }) => {
-  const placeholders = memberIds.map(() => '?').join(',');
+  if (!memberIds || memberIds.length === 0) {
+    return [];
+  }
+  const placeholders = buildPlaceholders(memberIds.length);
   const sql = `
     SELECT causes
     FROM check_ins
-    WHERE user_id IN (${placeholders}) AND date(timestamp) = date(?) AND causes IS NOT NULL
+    WHERE user_id IN (${placeholders}) AND DATE("timestamp") = DATE($${memberIds.length + 1}) AND causes IS NOT NULL
   `;
   return db.all(sql, [...memberIds, today]);
 };
 
 const getWeeklyTrend = async ({ memberIds }) => {
-  const placeholders = memberIds.map(() => '?').join(',');
+  if (!memberIds || memberIds.length === 0) {
+    return [];
+  }
+  const placeholders = buildPlaceholders(memberIds.length);
   const sql = `
-    SELECT date(timestamp) as day, AVG(mood_value) as avgMood
+    SELECT DATE("timestamp") as day, AVG(mood_value)::float as avgMood
     FROM check_ins
     WHERE user_id IN (${placeholders})
-      AND timestamp >= date('now', '-7 days')
-    GROUP BY date(timestamp)
-    ORDER BY date(timestamp) ASC
+      AND "timestamp" >= (CURRENT_DATE - INTERVAL '7 days')
+    GROUP BY DATE("timestamp")
+    ORDER BY DATE("timestamp") ASC
   `;
   return db.all(sql, memberIds);
 };

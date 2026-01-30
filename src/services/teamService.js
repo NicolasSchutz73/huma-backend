@@ -139,7 +139,7 @@ const addMember = async ({ teamId, userId }) => {
   try {
     await teamRepository.addMember({ id: memberId, teamId, userId });
   } catch (err) {
-    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+    if (err.code === '23505' || (err.message && err.message.includes('UNIQUE constraint failed'))) {
       throw new AppError('Utilisateur déjà membre de cette équipe', 409, 'CONFLICT');
     }
     throw err;
