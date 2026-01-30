@@ -13,9 +13,9 @@ const validateRow = (schema, row) => {
 
 const listByUserId = async (userId) => {
   const sql = `
-    SELECT id, category, date(created_at) as date, status, feedback_text, is_anonymous
+    SELECT id, category, DATE(created_at) as date, status, feedback_text, is_anonymous
     FROM feedbacks
-    WHERE user_id = ?
+    WHERE user_id = $1
     ORDER BY created_at DESC
   `;
   const rows = await db.all(sql, [userId]);
@@ -37,7 +37,7 @@ const listByUserId = async (userId) => {
 const createFeedback = async ({ id, userId, category, feedbackText, solutionText, isAnonymous }) => {
   const sql = `
     INSERT INTO feedbacks (id, user_id, category, feedback_text, solution_text, is_anonymous)
-    VALUES (?, ?, ?, ?, ?, ?)
+    VALUES ($1, $2, $3, $4, $5, $6)
   `;
   await db.run(sql, [id, userId, category, feedbackText, solutionText, isAnonymous]);
 };

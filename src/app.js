@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-require('./db/init');
+const initDb = require('./db/init');
 const requestId = require('./middleware/requestId');
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
@@ -14,6 +14,8 @@ const feedbackRoutes = require('./routes/feedbacks');
 const teamRoutes = require('./routes/team');
 
 const app = express();
+
+initDb();
 
 // Middleware
 app.disable('x-powered-by');

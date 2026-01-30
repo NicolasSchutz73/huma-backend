@@ -47,7 +47,7 @@ const createFeedback = async ({ userId, category, feedbackText, solutionText, is
   }
 
   const id = uuidv4();
-  const anonymous = isAnonymous !== false ? 1 : 0;
+  const anonymous = isAnonymous !== false;
 
   await feedbackRepository.createFeedback({
     id,
@@ -66,7 +66,7 @@ const createFeedback = async ({ userId, category, feedbackText, solutionText, is
       feedbackText,
       solutionText,
       status: 'pending',
-      isAnonymous: !!anonymous
+      isAnonymous: anonymous
     }
   };
 };

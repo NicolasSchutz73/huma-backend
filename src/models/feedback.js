@@ -15,7 +15,7 @@ const Feedback = z.object({
   feedback_text: z.string(),
   solution_text: z.string(),
   status: z.enum(['pending', 'vu', 'en_cours', 'resolu', 'archive']).optional(),
-  is_anonymous: z.number().int().optional(),
+  is_anonymous: z.boolean().optional(),
   created_at: z.string().optional()
 });
 

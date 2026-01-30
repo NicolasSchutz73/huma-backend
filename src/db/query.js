@@ -1,28 +1,19 @@
 const db = require('./index');
 
-const run = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) return reject(err);
-      resolve({ lastID: this.lastID, changes: this.changes });
-    });
-  });
+const run = async (sql, params = []) => {
+  const result = await db.query(sql, params);
+  return { rowCount: result.rowCount };
+};
 
-const get = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
+const get = async (sql, params = []) => {
+  const result = await db.query(sql, params);
+  return result.rows[0] || null;
+};
 
-const all = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) return reject(err);
-      resolve(rows);
-    });
-  });
+const all = async (sql, params = []) => {
+  const result = await db.query(sql, params);
+  return result.rows;
+};
 
 module.exports = {
   run,

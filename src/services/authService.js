@@ -20,7 +20,7 @@ const register = async ({ email }) => {
   try {
     await userRepository.createUser({ id: userId, email, organizationId: orgId, role });
   } catch (err) {
-    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+    if (err.code === '23505' || (err.message && err.message.includes('UNIQUE constraint failed'))) {
       throw new AppError('Email already exists', 409, 'CONFLICT');
     }
     throw err;
