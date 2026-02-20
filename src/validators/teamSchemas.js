@@ -20,8 +20,25 @@ const stats = z.object({
   })
 });
 
+const weeklySummary = z.object({
+  query: z.object({
+    teamId: z.string().min(1).optional(),
+    weekStart: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    period: z.enum(['week', 'month', 'year']).optional(),
+    date: z
+      .string()
+      .regex(/^\d{4}(-\d{2}(-\d{2})?)?$/)
+      .optional()
+  })
+});
+
 module.exports = {
   createTeam,
   addMember,
-  stats
+  stats,
+  weeklySummary,
+  weeklyFactors: weeklySummary
 };

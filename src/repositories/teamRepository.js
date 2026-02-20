@@ -103,6 +103,36 @@ const getWeeklyTrend = async ({ memberIds }) => {
   return db.all(sql, memberIds);
 };
 
+const getByDateRange = async (teamId, startDate, endDate) => {
+  const sql = `
+    SELECT
+      (ci."timestamp" AT TIME ZONE 'UTC')::date::text as date,
+      AVG(ci.mood_value)::float as "moodValue"
+    FROM check_ins ci
+    INNER JOIN team_members tm ON tm.user_id = ci.user_id
+    WHERE tm.team_id = $1
+      AND (ci."timestamp" AT TIME ZONE 'UTC')::date BETWEEN $2::date AND $3::date
+    GROUP BY (ci."timestamp" AT TIME ZONE 'UTC')::date
+    ORDER BY (ci."timestamp" AT TIME ZONE 'UTC')::date ASC
+  `;
+  return db.all(sql, [teamId, startDate, endDate]);
+};
+
+const getByDateRangeWithCauses = async (teamId, startDate, endDate) => {
+  const sql = `
+    SELECT
+      (ci."timestamp" AT TIME ZONE 'UTC')::date::text as date,
+      ci.mood_value::int as "moodValue",
+      ci.causes
+    FROM check_ins ci
+    INNER JOIN team_members tm ON tm.user_id = ci.user_id
+    WHERE tm.team_id = $1
+      AND (ci."timestamp" AT TIME ZONE 'UTC')::date BETWEEN $2::date AND $3::date
+    ORDER BY (ci."timestamp" AT TIME ZONE 'UTC')::date ASC
+  `;
+  return db.all(sql, [teamId, startDate, endDate]);
+};
+
 module.exports = {
   getMemberIdsByTeam,
   getFirstTeamIdByUser,
@@ -112,5 +142,7 @@ module.exports = {
   addMember,
   getTodayStats,
   getTodayCauses,
-  getWeeklyTrend
+  getWeeklyTrend,
+  getByDateRange,
+  getByDateRangeWithCauses
 };

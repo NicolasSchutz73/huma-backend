@@ -33,6 +33,104 @@ const teamSchemas = require('../validators/teamSchemas');
  */
 router.get('/stats', authenticate, validate(teamSchemas.stats), teamController.getTeamStats);
 
+/**
+ * @swagger
+ * /team/weekly-summary:
+ *   get:
+ *     tags: [Team]
+ *     summary: Get team weekly/monthly/yearly summary
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: teamId
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Team identifier (optional if user belongs to at least one team)
+ *       - in: query
+ *         name: weekStart
+ *         required: false
+ *         schema:
+ *           type: string
+ *           pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+ *         description: Week start date (YYYY-MM-DD). Used when period=week.
+ *       - in: query
+ *         name: period
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [week, month, year]
+ *         description: Period type (week, month, year)
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Date reference (YYYY-MM-DD for week, YYYY-MM for month, YYYY for year)
+ *     responses:
+ *       200:
+ *         description: Team period summary
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get('/weekly-summary', authenticate, validate(teamSchemas.weeklySummary), teamController.getWeeklySummary);
+
+/**
+ * @swagger
+ * /team/weekly-factors:
+ *   get:
+ *     tags: [Team]
+ *     summary: Get team weekly/monthly/yearly factors summary
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: teamId
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Team identifier (optional if user belongs to at least one team)
+ *       - in: query
+ *         name: weekStart
+ *         required: false
+ *         schema:
+ *           type: string
+ *           pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+ *         description: Week start date (YYYY-MM-DD). Used when period=week.
+ *       - in: query
+ *         name: period
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [week, month, year]
+ *         description: Period type (week, month, year)
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Date reference (YYYY-MM-DD for week, YYYY-MM for month, YYYY for year)
+ *     responses:
+ *       200:
+ *         description: Team period factors summary
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get('/weekly-factors', authenticate, validate(teamSchemas.weeklyFactors), teamController.getWeeklyFactors);
+
 // POST /team - Créer une équipe
 /**
  * @swagger
