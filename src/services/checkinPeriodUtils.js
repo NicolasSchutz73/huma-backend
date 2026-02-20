@@ -146,15 +146,13 @@ const buildDailyForWeek = ({ start, moodByDate, stats }) => {
 const buildDailyForMonth = ({ start, end, moodByDate, stats }) => {
   const daily = [];
   let participation = 0;
-  const cursor = new Date(start);
 
-  while (cursor <= end) {
+  for (let cursor = new Date(start); cursor <= end; cursor = new Date(cursor.getTime() + 86400000)) {
     const dateStr = toDateOnly(cursor);
     const moodValue = moodByDate[dateStr] ?? null;
     const { entry, participationDelta } = buildDailyEntry({ dateStr, moodValue, stats });
     participation += participationDelta;
     daily.push(entry);
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
   return { daily, participation };
@@ -163,9 +161,8 @@ const buildDailyForMonth = ({ start, end, moodByDate, stats }) => {
 const buildDailyForYear = ({ start, end, moodByDate, stats }) => {
   const monthBuckets = {};
   let participation = 0;
-  const cursor = new Date(start);
 
-  while (cursor <= end) {
+  for (let cursor = new Date(start); cursor <= end; cursor = new Date(cursor.getTime() + 86400000)) {
     const dateStr = toDateOnly(cursor);
     const moodValue = moodByDate[dateStr] ?? null;
     const label = getMoodLabel(moodValue);
@@ -183,7 +180,6 @@ const buildDailyForYear = ({ start, end, moodByDate, stats }) => {
     }
 
     applyDailyStats({ moodValue, label, stats });
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
   const daily = Object.keys(monthBuckets)
