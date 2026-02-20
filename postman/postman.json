@@ -17,6 +17,10 @@
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegardé\");",
+                  "}",
                   "if (jsonData.user && jsonData.user.id) {",
                   "  pm.collectionVariables.set(\"current_user_id\", jsonData.user.id);",
                   "  console.log(\"User ID sauvegardé : \" + jsonData.user.id);",
@@ -64,6 +68,10 @@
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegardé\");",
+                  "}",
                   "if (jsonData.user && jsonData.user.id) {",
                   "  pm.collectionVariables.set(\"current_user_id\", jsonData.user.id);",
                   "  console.log(\"User ID sauvegardé : \" + jsonData.user.id);",
@@ -114,8 +122,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "url": {
@@ -141,8 +149,8 @@
                 "value": "application/json"
               },
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "body": {
@@ -178,8 +186,8 @@
                 "value": "application/json"
               },
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "body": {
@@ -236,8 +244,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "url": {
@@ -263,8 +271,8 @@
                 "value": "application/json"
               },
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "body": {
@@ -294,8 +302,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "url": {
@@ -323,8 +331,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "url": {
@@ -352,8 +360,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "url": {
@@ -385,8 +393,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "url": {
@@ -418,8 +426,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "url": {
@@ -447,8 +455,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "url": {
@@ -480,8 +488,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "url": {
@@ -522,8 +530,8 @@
                 "value": "application/json"
               },
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "body": {
@@ -553,8 +561,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "url": {
@@ -599,8 +607,8 @@
                 "value": "application/json"
               },
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "body": {
@@ -634,8 +642,8 @@
                 "value": "application/json"
               },
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "body": {
@@ -666,8 +674,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "X-User-Id",
-                "value": "{{current_user_id}}"
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
               }
             ],
             "url": {
@@ -751,6 +759,11 @@
     },
     {
       "key": "current_user_id",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "auth_token",
       "value": "",
       "type": "default"
     },
