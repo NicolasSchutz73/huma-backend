@@ -28,10 +28,10 @@ const swaggerSpec = swaggerJsdoc({
     },
     components: {
       securitySchemes: {
-        UserIdHeader: {
-          type: 'apiKey',
-          in: 'header',
-          name: 'X-User-Id'
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT'
         }
       }
     }

@@ -15,14 +15,7 @@ console.log('Loading users routes...');
  *     tags: [Users]
  *     summary: Get current user info
  *     security:
- *       - UserIdHeader: []
- *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: User info
@@ -40,14 +33,7 @@ router.get('/me', authenticate, userController.getUserInfo);
  *     tags: [Users]
  *     summary: Complete user onboarding
  *     security:
- *       - UserIdHeader: []
- *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -95,14 +81,7 @@ router.put('/me/test', (req, res) => res.json({msg: "Test OK"}));
  *     tags: [Users]
  *     summary: Update user information
  *     security:
- *       - UserIdHeader: []
- *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:

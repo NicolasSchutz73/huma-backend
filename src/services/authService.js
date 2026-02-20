@@ -1,7 +1,16 @@
+const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
+const { jwtSecret, jwtExpiresIn } = require('../config');
 const organizationRepository = require('../repositories/organizationRepository');
 const userRepository = require('../repositories/userRepository');
 const { AppError } = require('../utils/errors');
+
+const createToken = (userId) => {
+  if (!jwtSecret) {
+    throw new AppError('JWT secret not configured', 500, 'CONFIG_ERROR');
+  }
+  return jwt.sign({ sub: userId }, jwtSecret, { expiresIn: jwtExpiresIn });
+};
 
 const register = async ({ email }) => {
   if (!email) {
@@ -28,6 +37,9 @@ const register = async ({ email }) => {
 
   return {
     message: 'User registered successfully',
+    token: createToken(userId),
+    tokenType: 'Bearer',
+    expiresIn: jwtExpiresIn,
     user: {
       id: userId,
       email,
@@ -49,6 +61,9 @@ const login = async ({ email }) => {
 
   return {
     message: 'Login successful',
+    token: createToken(user.id),
+    tokenType: 'Bearer',
+    expiresIn: jwtExpiresIn,
     user: {
       id: user.id,
       email: user.email,

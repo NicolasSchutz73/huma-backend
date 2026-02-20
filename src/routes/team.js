@@ -13,14 +13,8 @@ const teamSchemas = require('../validators/teamSchemas');
  *     tags: [Team]
  *     summary: Get team statistics
  *     security:
- *       - UserIdHeader: []
+ *       - bearerAuth: []
  *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
  *       - in: query
  *         name: teamId
  *         required: false
@@ -47,14 +41,7 @@ router.get('/stats', authenticate, validate(teamSchemas.stats), teamController.g
  *     tags: [Team]
  *     summary: Create a team
  *     security:
- *       - UserIdHeader: []
- *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -87,14 +74,7 @@ router.post('/', authenticate, validate(teamSchemas.createTeam), teamController.
  *     tags: [Team]
  *     summary: Add a user to a team
  *     security:
- *       - UserIdHeader: []
- *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:

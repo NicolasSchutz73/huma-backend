@@ -13,14 +13,7 @@ const feedbackSchemas = require('../validators/feedbackSchemas');
  *     tags: [Feedbacks]
  *     summary: List feedback history
  *     security:
- *       - UserIdHeader: []
- *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Feedback list
@@ -39,14 +32,7 @@ router.get('/', authenticate, feedbackController.getFeedbacks);
  *     tags: [Feedbacks]
  *     summary: Create a feedback ticket
  *     security:
- *       - UserIdHeader: []
- *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:

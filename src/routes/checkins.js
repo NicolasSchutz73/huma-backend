@@ -13,14 +13,7 @@ const checkinSchemas = require('../validators/checkinSchemas');
  *     tags: [Checkins]
  *     summary: Check if the user already submitted today
  *     security:
- *       - UserIdHeader: []
- *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Check-in status
@@ -43,14 +36,7 @@ router.get('/today', authenticate, checkinController.getTodayCheckin);
  *     tags: [Checkins]
  *     summary: Submit a check-in
  *     security:
- *       - UserIdHeader: []
- *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -107,14 +93,8 @@ router.post('/', authenticate, validate(checkinSchemas.createCheckin), checkinCo
  *     tags: [Checkins]
  *     summary: Get check-in history
  *     security:
- *       - UserIdHeader: []
+ *       - bearerAuth: []
  *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
  *       - in: query
  *         name: days
  *         required: false
@@ -152,14 +132,8 @@ router.get('/history', authenticate, validate(checkinSchemas.history), checkinCo
  *     tags: [Checkins]
  *     summary: Get weekly/monthly/yearly summary
  *     security:
- *       - UserIdHeader: []
+ *       - bearerAuth: []
  *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
  *       - in: query
  *         name: weekStart
  *         required: false
@@ -220,14 +194,8 @@ router.get('/weekly-summary', authenticate, validate(checkinSchemas.weeklySummar
  *     tags: [Checkins]
  *     summary: Get weekly/monthly/yearly factors summary
  *     security:
- *       - UserIdHeader: []
+ *       - bearerAuth: []
  *     parameters:
- *       - in: header
- *         name: X-User-Id
- *         required: true
- *         schema:
- *           type: string
- *         description: User identifier
  *       - in: query
  *         name: weekStart
  *         required: false

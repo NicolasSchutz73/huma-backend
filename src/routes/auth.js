@@ -24,6 +24,18 @@ const authSchemas = require('../validators/authSchemas');
  *     responses:
  *       200:
  *         description: User registered
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: User registered successfully
+ *               token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *               tokenType: Bearer
+ *               expiresIn: 7d
+ *               user:
+ *                 id: 3b2e7a68-438e-4f93-9e49-4c0ab01d2f01
+ *                 email: test@example.com
+ *                 role: employee
+ *                 organization_id: 9a0a0b93-1d3c-4b1c-8e8f-2dd4d9c9c0e3
  *       400:
  *         description: Invalid input
  *       500:
@@ -51,6 +63,18 @@ router.post('/register', validate(authSchemas.register), authController.register
  *     responses:
  *       200:
  *         description: Login success
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Login successful
+ *               token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *               tokenType: Bearer
+ *               expiresIn: 7d
+ *               user:
+ *                 id: 3b2e7a68-438e-4f93-9e49-4c0ab01d2f01
+ *                 email: test@example.com
+ *                 role: employee
+ *                 organizationId: 9a0a0b93-1d3c-4b1c-8e8f-2dd4d9c9c0e3
  *       401:
  *         description: Unauthorized
  *       500:
