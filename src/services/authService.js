@@ -17,14 +17,15 @@ const register = async ({ email }) => {
     throw new AppError('Email is required', 400, 'VALIDATION_ERROR');
   }
 
+  const userId = uuidv4();
+  const role = 'employee';
+  const token = createToken(userId);
+
   let orgId = await organizationRepository.getAnyOrganizationId();
   if (!orgId) {
     orgId = uuidv4();
     await organizationRepository.createOrganization(orgId, 'Default Organization');
   }
-
-  const userId = uuidv4();
-  const role = 'employee';
 
   try {
     await userRepository.createUser({ id: userId, email, organizationId: orgId, role });
@@ -37,7 +38,7 @@ const register = async ({ email }) => {
 
   return {
     message: 'User registered successfully',
-    token: createToken(userId),
+    token,
     tokenType: 'Bearer',
     expiresIn: jwtExpiresIn,
     user: {
