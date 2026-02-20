@@ -2,12 +2,46 @@ const { v4: uuidv4 } = require('uuid');
 const teamRepository = require('../repositories/teamRepository');
 const userRepository = require('../repositories/userRepository');
 const { AppError } = require('../utils/errors');
+const {
+  VALID_CAUSES,
+  createWeeklyStats,
+  getPeriodRange,
+  validatePeriodDate,
+  toDateOnly,
+  buildDailyForWeek,
+  buildDailyForMonth,
+  buildDailyForYear,
+  parseCauses,
+  buildBucketSummary
+} = require('./checkinPeriodUtils');
 
 const getMoodLabel = (score) => {
   if (score >= 8) return "L'équipe est au top !";
   if (score >= 6) return "Tout va bien aujourd'hui";
   if (score >= 4) return "Ambiance mitigée";
   return "Journée difficile pour l'équipe";
+};
+
+const resolveTeamIdForUser = async ({ userId, queryTeamId }) => {
+  if (queryTeamId) {
+    const isMember = await teamRepository.isMember(queryTeamId, userId);
+    if (!isMember) {
+      throw new AppError("Vous n'appartenez pas à cette équipe", 403, 'FORBIDDEN');
+    }
+    return queryTeamId;
+  }
+
+  return teamRepository.getFirstTeamIdByUser(userId);
+};
+
+const buildPeriodDaily = ({ period, start, end, moodByDate, stats }) => {
+  if (period === 'month') {
+    return buildDailyForMonth({ start, end, moodByDate, stats });
+  }
+  if (period === 'year') {
+    return buildDailyForYear({ start, end, moodByDate, stats });
+  }
+  return buildDailyForWeek({ start, moodByDate, stats });
 };
 
 const getTeamStats = async ({ userId, queryTeamId }) => {
@@ -74,15 +108,7 @@ const getTeamStats = async ({ userId, queryTeamId }) => {
     };
   };
 
-  if (queryTeamId) {
-    const isMember = await teamRepository.isMember(queryTeamId, userId);
-    if (!isMember) {
-      throw new AppError("Vous n'appartenez pas à cette équipe", 403, 'FORBIDDEN');
-    }
-    return fetchTeamStats(queryTeamId);
-  }
-
-  const teamId = await teamRepository.getFirstTeamIdByUser(userId);
+  const teamId = await resolveTeamIdForUser({ userId, queryTeamId });
   if (!teamId) {
     return {
       globalScore: 0,
@@ -93,6 +119,98 @@ const getTeamStats = async ({ userId, queryTeamId }) => {
   }
 
   return fetchTeamStats(teamId);
+};
+
+const getWeeklySummary = async ({ userId, queryTeamId, weekStart, period = 'week', date }) => {
+  validatePeriodDate({ period, date });
+  const { start, end } = getPeriodRange({ period, weekStart, date });
+  const rangeStartStr = toDateOnly(start);
+  const rangeEndStr = toDateOnly(end);
+  const teamId = await resolveTeamIdForUser({ userId, queryTeamId });
+
+  let dailyRows = [];
+  let rawRows = [];
+  if (teamId) {
+    [dailyRows, rawRows] = await Promise.all([
+      teamRepository.getByDateRange(teamId, rangeStartStr, rangeEndStr),
+      teamRepository.getByDateRangeWithCauses(teamId, rangeStartStr, rangeEndStr)
+    ]);
+  }
+
+  const moodByDate = {};
+  dailyRows.forEach((row) => {
+    if (row.moodValue !== null && row.moodValue !== undefined) {
+      moodByDate[row.date] = Number(row.moodValue.toFixed(1));
+    }
+  });
+
+  let moodTotal = 0;
+  let moodCount = 0;
+  rawRows.forEach((row) => {
+    if (row.moodValue !== null && row.moodValue !== undefined) {
+      moodTotal += row.moodValue;
+      moodCount += 1;
+    }
+  });
+
+  const stats = createWeeklyStats();
+  const dailyResult = buildPeriodDaily({ period, start, end, moodByDate, stats });
+
+  return {
+    weekStart: rangeStartStr,
+    weekEnd: rangeEndStr,
+    period,
+    participation: dailyResult.participation,
+    averageMood: moodCount ? Number((moodTotal / moodCount / 10).toFixed(1)) : null,
+    daily: dailyResult.daily,
+    stats
+  };
+};
+
+const getWeeklyFactors = async ({ userId, queryTeamId, weekStart, period = 'week', date }) => {
+  validatePeriodDate({ period, date });
+  const { start, end } = getPeriodRange({ period, weekStart, date });
+  const rangeStartStr = toDateOnly(start);
+  const rangeEndStr = toDateOnly(end);
+  const teamId = await resolveTeamIdForUser({ userId, queryTeamId });
+
+  let rows = [];
+  if (teamId) {
+    rows = await teamRepository.getByDateRangeWithCauses(teamId, rangeStartStr, rangeEndStr);
+  }
+
+  const availableCauses = new Set();
+  const summaryValues = [];
+  const byCauseValues = {};
+
+  rows.forEach((row) => {
+    if (row.moodValue !== null && row.moodValue !== undefined) {
+      summaryValues.push(row.moodValue);
+    }
+
+    const causes = parseCauses(row.causes).filter((cause) => VALID_CAUSES.includes(cause));
+    causes.forEach((cause) => {
+      availableCauses.add(cause);
+      if (!byCauseValues[cause]) byCauseValues[cause] = [];
+      if (row.moodValue !== null && row.moodValue !== undefined) {
+        byCauseValues[cause].push(row.moodValue);
+      }
+    });
+  });
+
+  const byCause = {};
+  Object.keys(byCauseValues).forEach((cause) => {
+    byCause[cause] = buildBucketSummary(byCauseValues[cause]);
+  });
+
+  return {
+    weekStart: rangeStartStr,
+    weekEnd: rangeEndStr,
+    period,
+    availableCauses: Array.from(availableCauses),
+    summary: buildBucketSummary(summaryValues),
+    byCause
+  };
 };
 
 const createTeam = async ({ name, organizationId, userOrganizationId }) => {
@@ -157,6 +275,8 @@ const addMember = async ({ teamId, userId }) => {
 
 module.exports = {
   getTeamStats,
+  getWeeklySummary,
+  getWeeklyFactors,
   createTeam,
   addMember
 };
