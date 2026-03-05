@@ -1,6 +1,7 @@
 const db = require('../db/query');
 const { User } = require('../models/user');
 const { AppError } = require('../utils/errors');
+const { v4: uuidv4 } = require('uuid');
 
 const validateRow = (schema, row) => {
   if (!row) return row;
@@ -11,17 +12,17 @@ const validateRow = (schema, row) => {
   return row;
 };
 
-const createUser = async ({ id, email, organizationId, role }) => {
+const createUser = async ({ id, email, organizationId, role, passwordHash = null }) => {
   const sql = `
-    INSERT INTO users (id, email, organization_id, role, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, NOW(), NOW())
+    INSERT INTO users (id, email, password_hash, organization_id, role, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
   `;
-  await db.run(sql, [id, email, organizationId, role]);
+  await db.run(sql, [id, email, passwordHash, organizationId, role]);
 };
 
 const getByEmail = async (email) => {
   const sql = `
-    SELECT id, email, role, organization_id, first_name, last_name, onboarding_completed
+    SELECT id, email, password_hash, role, organization_id, first_name, last_name, onboarding_completed
     FROM users
     WHERE email = $1
   `;
@@ -30,6 +31,7 @@ const getByEmail = async (email) => {
     User.pick({
       id: true,
       email: true,
+      password_hash: true,
       role: true,
       organization_id: true,
       first_name: true,
@@ -90,8 +92,51 @@ const updateOnboarding = async ({ userId, workStyle, motivationType, stressSourc
   await db.run(sql, [workStyle, motivationType, stressSource, userId]);
 };
 
+const setPasswordHash = async ({ userId, passwordHash }) => {
+  const sql = `
+    UPDATE users
+    SET password_hash = $1, updated_at = NOW()
+    WHERE id = $2
+  `;
+  await db.run(sql, [passwordHash, userId]);
+};
+
+const createIfNotExists = async ({ email, role, organizationId, firstName, lastName, passwordHash = null }) => {
+  const existingUser = await getByEmail(email);
+  if (existingUser) {
+    if (!existingUser.password_hash && passwordHash) {
+      await setPasswordHash({ userId: existingUser.id, passwordHash });
+      existingUser.password_hash = passwordHash;
+    }
+    return { user: existingUser, created: false };
+  }
+
+  const id = uuidv4();
+  const sql = `
+    INSERT INTO users (id, email, password_hash, organization_id, role, first_name, last_name, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+  `;
+  await db.run(sql, [id, email, passwordHash, organizationId, role, firstName || null, lastName || null]);
+
+  return {
+    user: {
+      id,
+      email,
+      password_hash: passwordHash,
+      role,
+      organization_id: organizationId,
+      first_name: firstName || null,
+      last_name: lastName || null,
+      onboarding_completed: false
+    },
+    created: true
+  };
+};
+
 module.exports = {
   createUser,
+  createIfNotExists,
+  setPasswordHash,
   getByEmail,
   getById,
   getIdById,

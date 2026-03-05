@@ -20,7 +20,10 @@ const authSchemas = require('../validators/authSchemas');
  *               email:
  *                 type: string
  *                 format: email
- *             required: [email]
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *             required: [email, password]
  *     responses:
  *       200:
  *         description: User registered
@@ -59,7 +62,10 @@ router.post('/register', validate(authSchemas.register), authController.register
  *               email:
  *                 type: string
  *                 format: email
- *             required: [email]
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *             required: [email, password]
  *     responses:
  *       200:
  *         description: Login success

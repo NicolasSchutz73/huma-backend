@@ -2,7 +2,10 @@ const authService = require('../services/authService');
 
 const register = async (req, res, next) => {
   try {
-    const result = await authService.register({ email: req.body.email });
+    const result = await authService.register({
+      email: req.body.email,
+      password: req.body.password
+    });
     res.status(201).json(result);
   } catch (err) {
     next(err);
@@ -11,7 +14,10 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
-    const result = await authService.login({ email: req.body.email });
+    const result = await authService.login({
+      email: req.body.email,
+      password: req.body.password
+    });
     res.status(200).json(result);
   } catch (err) {
     next(err);

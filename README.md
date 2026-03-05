@@ -8,6 +8,16 @@ npm install
 npm run dev
 ```
 
+## Seed local (dev)
+- En mode `development`, le backend seed automatiquement un dataset local exploitable:
+  - `1 admin`: `admin@local.test`
+  - `2 managers`: `manager1@local.test`, `manager2@local.test`
+  - `2 équipes` de `10 salariés` chacune (`employee01..employee20@local.test`)
+  - `90 jours` de check-ins + quelques feedbacks
+- Mot de passe seed partagé (dev): `adminadmin`
+- Le seed est idempotent (pas de doublons).
+- Aucun seed automatique en production.
+
 ## Commandes
 ```bash
 # dev (nodemon)
@@ -22,6 +32,10 @@ npm test
 
 ## API
 Base URL (Render): `https://huma-backend-a0wj.onrender.com`
+
+## Auth
+- Authentification: login par `email + password` + JWT Bearer.
+- `POST /auth/register` et `POST /auth/login` exigent désormais `email` et `password` (min 8 caractères).
 
 ### Checkins - Résumés
 - `GET /checkins/weekly-summary`
