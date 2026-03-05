@@ -4,6 +4,7 @@ const User = z.object({
   id: z.string(),
   organization_id: z.string(),
   email: z.string().email(),
+  password_hash: z.string().nullable().optional(),
   role: z.enum(['employee', 'manager', 'director', 'admin']),
   first_name: z.string().nullable().optional(),
   last_name: z.string().nullable().optional(),

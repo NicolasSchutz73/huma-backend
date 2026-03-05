@@ -21,6 +21,7 @@ const parseDateOnly = (value) => {
   if (!dateOnlyMatch.test(value)) return null;
   const date = new Date(`${value}T00:00:00.000Z`);
   if (Number.isNaN(date.getTime())) return null;
+  if (date.toISOString().split('T')[0] !== value) return null;
   return date;
 };
 
@@ -30,6 +31,7 @@ const parseMonthOnly = (value) => {
   if (!monthOnlyMatch.test(value)) return null;
   const date = new Date(`${value}-01T00:00:00.000Z`);
   if (Number.isNaN(date.getTime())) return null;
+  if (date.toISOString().slice(0, 7) !== value) return null;
   return date;
 };
 

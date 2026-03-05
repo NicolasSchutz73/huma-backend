@@ -4,7 +4,6 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
-const initDb = require('./db/init');
 const requestId = require('./middleware/requestId');
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
@@ -16,8 +15,6 @@ const feedbackRoutes = require('./routes/feedbacks');
 const teamRoutes = require('./routes/team');
 
 const app = express();
-
-initDb();
 
 const swaggerSpec = swaggerJsdoc({
   definition: {

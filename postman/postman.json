@@ -40,7 +40,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"email\": \"test2@example.com\"}",
+              "raw": "{\"email\":\"new{{$timestamp}}@example.com\",\"password\":\"{{seed_password}}\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -61,7 +61,7 @@
           "response": []
         },
         {
-          "name": "login",
+          "name": "login (manager seed)",
           "event": [
             {
               "listen": "test",
@@ -69,6 +69,7 @@
                 "exec": [
                   "var jsonData = pm.response.json();",
                   "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"manager_token\", jsonData.token);",
                   "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
                   "  console.log(\"Token sauvegardé\");",
                   "}",
@@ -91,7 +92,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"email\": \"test2@example.com\"}",
+              "raw": "{\"email\":\"{{manager_email}}\",\"password\":\"{{seed_password}}\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -108,6 +109,306 @@
                 "login"
               ]
             }
+          },
+          "response": []
+        },
+        {
+          "name": "login (admin seed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"admin_token\", jsonData.token);",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegardé\");",
+                  "}",
+                  "if (jsonData.user && jsonData.user.id) {",
+                  "  pm.collectionVariables.set(\"current_user_id\", jsonData.user.id);",
+                  "  console.log(\"User ID sauvegardé : \" + jsonData.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{admin_email}}\",\"password\":\"{{seed_password}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "login (employee seed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"employee_token\", jsonData.token);",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegardé\");",
+                  "}",
+                  "if (jsonData.user && jsonData.user.id) {",
+                  "  pm.collectionVariables.set(\"current_user_id\", jsonData.user.id);",
+                  "  console.log(\"User ID sauvegardé : \" + jsonData.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{employee_email}}\",\"password\":\"{{seed_password}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "login (manager healthy demo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"manager_token\", jsonData.token);",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegarde pour login (manager healthy demo)\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{healthy_manager_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Connexion seed pour login (manager healthy demo). Met aussi à jour auth_token."
+          },
+          "response": []
+        },
+        {
+          "name": "login (manager struggling demo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"manager_token\", jsonData.token);",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegarde pour login (manager struggling demo)\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{struggling_manager_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Connexion seed pour login (manager struggling demo). Met aussi à jour auth_token."
+          },
+          "response": []
+        },
+        {
+          "name": "login (employee healthy demo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"employee_token\", jsonData.token);",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegarde pour login (employee healthy demo)\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{healthy_employee_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Connexion seed pour login (employee healthy demo). Met aussi à jour auth_token."
+          },
+          "response": []
+        },
+        {
+          "name": "login (employee struggling demo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"employee_token\", jsonData.token);",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegarde pour login (employee struggling demo)\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{struggling_employee_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Connexion seed pour login (employee struggling demo). Met aussi à jour auth_token."
           },
           "response": []
         }
@@ -277,7 +578,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"moodValue\": 85,\n  \"causes\": [\"WORKLOAD\", \"BALANCE\"],\n  \"comment\": \"Super journée!\",\n  \"timestamp\": \"2026-01-29T12:00:00Z\"\n}",
+              "raw": "{\n  \"moodValue\": 78,\n  \"causes\": [\n    \"WORKLOAD\",\n    \"BALANCE\"\n  ],\n  \"comment\": \"Seeded user check-in depuis Postman\",\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -697,6 +998,628 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Get team weekly summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-summary?period=week",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-summary"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "week"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get team monthly summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-summary?period=month&date=2026-02",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-summary"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                },
+                {
+                  "key": "date",
+                  "value": "2026-02"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get team weekly factors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-factors?period=week",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-factors"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "week"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get team weekly insight (AI)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-insight?weekStart={{team_week_start}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-insight"
+              ],
+              "query": [
+                {
+                  "key": "weekStart",
+                  "value": "{{team_week_start}}"
+                },
+                {
+                  "key": "teamId",
+                  "value": "{{current_team_id}}",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Génère la synthèse IA hebdomadaire d'équipe. Pré-requis conseillé: se connecter avec un compte seed manager ou employee pour charger `auth_token`. `teamId` peut rester désactivé pour utiliser l'équipe du membre connecté."
+          },
+          "response": []
+        },
+        {
+          "name": "Get weekly analysis report (manager)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-analysis-report?weekStart={{team_week_start}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-analysis-report"
+              ],
+              "query": [
+                {
+                  "key": "weekStart",
+                  "value": "{{team_week_start}}"
+                },
+                {
+                  "key": "teamId",
+                  "value": "{{current_team_id}}",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Rapport d'analyse hebdomadaire réservé aux managers et admins. En mode manager, `teamId` peut rester désactivé pour utiliser l'équipe du membre connecté."
+          },
+          "response": []
+        },
+        {
+          "name": "Get weekly analysis report (admin with teamId)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-analysis-report?weekStart={{team_week_start}}&teamId={{current_team_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-analysis-report"
+              ],
+              "query": [
+                {
+                  "key": "weekStart",
+                  "value": "{{team_week_start}}"
+                },
+                {
+                  "key": "teamId",
+                  "value": "{{current_team_id}}"
+                }
+              ]
+            },
+            "description": "Rapport d'analyse hebdomadaire côté admin. Pré-requis: avoir exécuté une requête qui renseigne `current_team_id`, car `teamId` est obligatoire pour les admins."
+          },
+          "response": []
+        },
+        {
+          "name": "Get team monthly factors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-factors?period=month&date=2026-02",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-factors"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                },
+                {
+                  "key": "date",
+                  "value": "2026-02"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "demo scenarios",
+      "description": "Parcours prêts à jouer pour comparer Equipe A (saine) et Equipe B (sous tension).",
+      "item": [
+        {
+          "name": "login (manager healthy demo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"manager_token\", jsonData.token);",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegarde pour login (manager healthy demo)\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{healthy_manager_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Connexion seed pour login (manager healthy demo). Met aussi à jour auth_token."
+          },
+          "response": []
+        },
+        {
+          "name": "Healthy team - stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/stats",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "stats"
+              ]
+            },
+            "description": "Vue manager sur Equipe A."
+          },
+          "response": []
+        },
+        {
+          "name": "Healthy team - weekly insight (AI)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-insight",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-insight"
+              ]
+            },
+            "description": "Synthèse IA hebdomadaire pour Equipe A. Sans weekStart pour exploiter la semaine courante seedée."
+          },
+          "response": []
+        },
+        {
+          "name": "Healthy team - weekly analysis report (manager)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-analysis-report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-analysis-report"
+              ]
+            },
+            "description": "Rapport manager complet pour Equipe A."
+          },
+          "response": []
+        },
+        {
+          "name": "login (manager struggling demo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"manager_token\", jsonData.token);",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegarde pour login (manager struggling demo)\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{struggling_manager_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Connexion seed pour login (manager struggling demo). Met aussi à jour auth_token."
+          },
+          "response": []
+        },
+        {
+          "name": "Struggling team - stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/stats",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "stats"
+              ]
+            },
+            "description": "Vue manager sur Equipe B."
+          },
+          "response": []
+        },
+        {
+          "name": "Struggling team - weekly insight (AI)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-insight",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-insight"
+              ]
+            },
+            "description": "Synthèse IA hebdomadaire pour Equipe B."
+          },
+          "response": []
+        },
+        {
+          "name": "Struggling team - weekly analysis report (manager)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-analysis-report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-analysis-report"
+              ]
+            },
+            "description": "Rapport manager complet pour Equipe B."
+          },
+          "response": []
+        },
+        {
+          "name": "login (employee healthy demo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"employee_token\", jsonData.token);",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegarde pour login (employee healthy demo)\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{healthy_employee_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Connexion seed pour login (employee healthy demo). Met aussi à jour auth_token."
+          },
+          "response": []
+        },
+        {
+          "name": "Healthy team - weekly insight (employee view)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-insight",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-insight"
+              ]
+            },
+            "description": "Vue salarié sur Equipe A."
+          },
+          "response": []
+        },
+        {
+          "name": "login (employee struggling demo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "  pm.collectionVariables.set(\"employee_token\", jsonData.token);",
+                  "  pm.collectionVariables.set(\"auth_token\", jsonData.token);",
+                  "  console.log(\"Token sauvegarde pour login (employee struggling demo)\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{struggling_employee_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Connexion seed pour login (employee struggling demo). Met aussi à jour auth_token."
+          },
+          "response": []
+        },
+        {
+          "name": "Struggling team - weekly insight (employee view)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-insight",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-insight"
+              ]
+            },
+            "description": "Vue salarié sur Equipe B."
+          },
+          "response": []
         }
       ]
     },
@@ -771,6 +1694,62 @@
       "key": "current_team_id",
       "value": "",
       "type": "default"
+    },
+    {
+      "key": "team_week_start",
+      "value": "2026-02-16",
+      "type": "default"
+    },
+    {
+      "key": "seed_password",
+      "value": "adminadmin",
+      "type": "default"
+    },
+    {
+      "key": "admin_email",
+      "value": "admin@local.test",
+      "type": "default"
+    },
+    {
+      "key": "manager_email",
+      "value": "manager1@local.test",
+      "type": "default"
+    },
+    {
+      "key": "employee_email",
+      "value": "employee01@local.test",
+      "type": "default"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "manager_token",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "employee_token",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "healthy_manager_email",
+      "value": "manager1@local.test"
+    },
+    {
+      "key": "struggling_manager_email",
+      "value": "manager2@local.test"
+    },
+    {
+      "key": "healthy_employee_email",
+      "value": "employee01@local.test"
+    },
+    {
+      "key": "struggling_employee_email",
+      "value": "employee11@local.test"
     }
   ]
 }
