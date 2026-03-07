@@ -131,6 +131,64 @@ router.get('/weekly-summary', authenticate, validate(teamSchemas.weeklySummary),
  */
 router.get('/weekly-factors', authenticate, validate(teamSchemas.weeklyFactors), teamController.getWeeklyFactors);
 
+/**
+ * @swagger
+ * /team/weekly-insight:
+ *   get:
+ *     tags: [Team]
+ *     summary: Generate an AI weekly team insight
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: teamId
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Team identifier (optional if user belongs to at least one team)
+ *       - in: query
+ *         name: weekStart
+ *         required: false
+ *         schema:
+ *           type: string
+ *           pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+ *         description: Week start date (YYYY-MM-DD). Defaults to the current week.
+ *     responses:
+ *       200:
+ *         description: AI-generated weekly team insight
+ *         content:
+ *           application/json:
+ *             example:
+ *               weekStart: "2026-02-16"
+ *               weekEnd: "2026-02-20"
+ *               teamId: "team-1"
+ *               generated: true
+ *               summaryText: "Dynamique positive avec une humeur à 7,2/10 et une participation en hausse (80%)."
+ *               metrics:
+ *                 averageMood: 7.2
+ *                 participation: 4
+ *                 participationRate: 80
+ *                 topCauses: [WORKLOAD, RECOGNITION]
+ *                 feedbackCategories:
+ *                   ORGANIZATION: 2
+ *                   RECOGNITION: 1
+ *                 daily:
+ *                   - date: "2026-02-16"
+ *                     moodValue: 7.4
+ *                     label: Jour excellent
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       502:
+ *         description: AI generation failed
+ *       500:
+ *         description: Server error
+ */
+router.get('/weekly-insight', authenticate, validate(teamSchemas.weeklyInsight), teamController.getWeeklyInsight);
+
 // POST /team - Créer une équipe
 /**
  * @swagger

@@ -122,6 +122,7 @@ const getByDateRangeWithCauses = async (teamId, startDate, endDate) => {
   const sql = `
     SELECT
       (ci."timestamp" AT TIME ZONE 'UTC')::date::text as date,
+      ci.user_id as "userId",
       ci.mood_value::int as "moodValue",
       ci.causes
     FROM check_ins ci
@@ -131,6 +132,18 @@ const getByDateRangeWithCauses = async (teamId, startDate, endDate) => {
     ORDER BY (ci."timestamp" AT TIME ZONE 'UTC')::date ASC
   `;
   return db.all(sql, [teamId, startDate, endDate]);
+};
+
+const getActiveMemberCountByDateRange = async (teamId, startDate, endDate) => {
+  const sql = `
+    SELECT COUNT(DISTINCT ci.user_id)::int as count
+    FROM check_ins ci
+    INNER JOIN team_members tm ON tm.user_id = ci.user_id
+    WHERE tm.team_id = $1
+      AND (ci."timestamp" AT TIME ZONE 'UTC')::date BETWEEN $2::date AND $3::date
+  `;
+  const row = await db.get(sql, [teamId, startDate, endDate]);
+  return row && row.count ? row.count : 0;
 };
 
 module.exports = {
@@ -144,5 +157,6 @@ module.exports = {
   getTodayCauses,
   getWeeklyTrend,
   getByDateRange,
-  getByDateRangeWithCauses
+  getByDateRangeWithCauses,
+  getActiveMemberCountByDateRange
 };

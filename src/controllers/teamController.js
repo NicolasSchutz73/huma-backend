@@ -42,6 +42,19 @@ const getWeeklyFactors = async (req, res, next) => {
   }
 };
 
+const getWeeklyInsight = async (req, res, next) => {
+  try {
+    const result = await teamService.getWeeklyInsight({
+      userId: req.user.id,
+      queryTeamId: req.query.teamId,
+      weekStart: req.query.weekStart
+    });
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
 const createTeam = async (req, res, next) => {
   try {
     const result = await teamService.createTeam({
@@ -71,6 +84,7 @@ module.exports = {
   getTeamStats,
   getWeeklySummary,
   getWeeklyFactors,
+  getWeeklyInsight,
   createTeam,
   addMember,
 };

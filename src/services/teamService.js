@@ -1,7 +1,9 @@
 const { v4: uuidv4 } = require('uuid');
 const teamRepository = require('../repositories/teamRepository');
 const userRepository = require('../repositories/userRepository');
+const feedbackRepository = require('../repositories/feedbackRepository');
 const { AppError } = require('../utils/errors');
+const groqClient = require('./groqClient');
 const {
   VALID_CAUSES,
   createWeeklyStats,
@@ -14,6 +16,34 @@ const {
   parseCauses,
   buildBucketSummary
 } = require('./checkinPeriodUtils');
+
+const EMPTY_INSIGHT_METRICS = {
+  averageMood: null,
+  participation: 0,
+  participationRate: 0,
+  topCauses: [],
+  feedbackCategories: {},
+  daily: []
+};
+
+const CAUSE_LABELS = {
+  WORKLOAD: 'charge de travail',
+  RELATIONS: 'relations',
+  MOTIVATION: 'motivation',
+  CLARITY: 'clarté des priorités',
+  RECOGNITION: 'reconnaissance',
+  BALANCE: 'équilibre vie pro / vie perso'
+};
+
+const FEEDBACK_CATEGORY_LABELS = {
+  WORKLOAD: 'charge de travail',
+  RELATIONS: 'relations',
+  MOTIVATION: 'motivation',
+  ORGANIZATION: 'organisation',
+  RECOGNITION: 'reconnaissance',
+  WORK_LIFE_BALANCE: 'équilibre vie pro / vie perso',
+  FACILITIES: 'environnement de travail'
+};
 
 const getMoodLabel = (score) => {
   if (score >= 8) return "L'équipe est au top !";
@@ -42,6 +72,86 @@ const buildPeriodDaily = ({ period, start, end, moodByDate, stats }) => {
     return buildDailyForYear({ start, end, moodByDate, stats });
   }
   return buildDailyForWeek({ start, moodByDate, stats });
+};
+
+const assertValidWeekStart = (weekStart) => {
+  if (!weekStart) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    throw new AppError('weekStart must be in YYYY-MM-DD format', 400, 'VALIDATION_ERROR');
+  }
+};
+
+const roundToOneDecimal = (value) => Number((value).toFixed(1));
+
+const getMoodBand = (averageMood) => {
+  if (averageMood === null || averageMood === undefined) return 'sans donnée exploitable';
+  if (averageMood >= 7.5) return 'positive';
+  if (averageMood >= 6) return 'correcte';
+  if (averageMood >= 4.5) return 'fragile';
+  return 'très dégradée';
+};
+
+const getTrendStrength = (daily) => {
+  const numericDaily = daily.filter((entry) => entry.moodValue !== null && entry.moodValue !== undefined);
+  if (numericDaily.length < 2) return 'stable';
+
+  const values = numericDaily.map((entry) => entry.moodValue);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const amplitude = roundToOneDecimal(maxValue - minValue);
+
+  if (amplitude >= 1.2) return 'marquée';
+  if (amplitude >= 0.5) return 'modérée';
+  return 'faible';
+};
+
+const getDailyTrendSummary = (daily) => {
+  const numericDaily = daily.filter((entry) => entry.moodValue !== null && entry.moodValue !== undefined);
+  if (numericDaily.length < 2) {
+    return {
+      trend: 'stable',
+      strength: 'faible',
+      lowestDay: null,
+      highestDay: null,
+      summary: 'Pas assez de variation pour dégager une tendance nette.'
+    };
+  }
+
+  const firstValue = numericDaily[0].moodValue;
+  const lastValue = numericDaily[numericDaily.length - 1].moodValue;
+  const minEntry = numericDaily.reduce((lowest, entry) => (entry.moodValue < lowest.moodValue ? entry : lowest), numericDaily[0]);
+  const maxEntry = numericDaily.reduce((highest, entry) => (entry.moodValue > highest.moodValue ? entry : highest), numericDaily[0]);
+  const delta = roundToOneDecimal(lastValue - firstValue);
+
+  let trend = 'stable';
+  if (delta >= 0.4) trend = 'hausse';
+  else if (delta <= -0.4) trend = 'baisse';
+  const strength = getTrendStrength(numericDaily);
+
+  const summaryParts = [];
+  if (Math.abs(delta) >= 0.4) {
+    summaryParts.push(`Écart entre début et fin de semaine: ${delta > 0 ? '+' : ''}${String(delta).replace('.', ',')} point.`);
+  } else {
+    summaryParts.push('Évolution globale limitée entre le début et la fin de semaine.');
+  }
+
+  if (minEntry.date !== maxEntry.date) {
+    summaryParts.push(`Point bas le ${minEntry.date} à ${String(minEntry.moodValue).replace('.', ',')}/10, point haut le ${maxEntry.date} à ${String(maxEntry.moodValue).replace('.', ',')}/10.`);
+  }
+
+  return {
+    trend,
+    strength,
+    lowestDay: {
+      date: minEntry.date,
+      moodValue: minEntry.moodValue
+    },
+    highestDay: {
+      date: maxEntry.date,
+      moodValue: maxEntry.moodValue
+    },
+    summary: summaryParts.join(' ')
+  };
 };
 
 const getTeamStats = async ({ userId, queryTeamId }) => {
@@ -213,6 +323,125 @@ const getWeeklyFactors = async ({ userId, queryTeamId, weekStart, period = 'week
   };
 };
 
+const getWeeklyInsight = async ({ userId, queryTeamId, weekStart }) => {
+  assertValidWeekStart(weekStart);
+  const period = 'week';
+  const { start, end } = getPeriodRange({ period, weekStart });
+  const rangeStartStr = toDateOnly(start);
+  const rangeEndStr = toDateOnly(end);
+  const teamId = await resolveTeamIdForUser({ userId, queryTeamId });
+
+  if (!teamId) {
+    return {
+      weekStart: rangeStartStr,
+      weekEnd: rangeEndStr,
+      teamId: null,
+      generated: false,
+      summaryText: null,
+      metrics: { ...EMPTY_INSIGHT_METRICS }
+    };
+  }
+
+  const [memberRows, activeMemberCount, dailyRows, rawRows, feedbackCategoryRows] = await Promise.all([
+    teamRepository.getMemberIdsByTeam(teamId),
+    teamRepository.getActiveMemberCountByDateRange(teamId, rangeStartStr, rangeEndStr),
+    teamRepository.getByDateRange(teamId, rangeStartStr, rangeEndStr),
+    teamRepository.getByDateRangeWithCauses(teamId, rangeStartStr, rangeEndStr),
+    feedbackRepository.getWeeklyCategoryCountsByTeam(teamId, rangeStartStr, rangeEndStr)
+  ]);
+
+  if (rawRows.length === 0) {
+    return {
+      weekStart: rangeStartStr,
+      weekEnd: rangeEndStr,
+      teamId,
+      generated: false,
+      summaryText: null,
+      metrics: { ...EMPTY_INSIGHT_METRICS }
+    };
+  }
+
+  const feedbackCategories = {};
+  feedbackCategoryRows.forEach((row) => {
+    feedbackCategories[row.category] = row.count;
+  });
+
+  const causeCounts = {};
+  let moodTotal = 0;
+  let moodCount = 0;
+  rawRows.forEach((row) => {
+    if (row.moodValue !== null && row.moodValue !== undefined) {
+      moodTotal += row.moodValue;
+      moodCount += 1;
+    }
+
+    const causes = parseCauses(row.causes).filter((cause) => VALID_CAUSES.includes(cause));
+    causes.forEach((cause) => {
+      causeCounts[cause] = (causeCounts[cause] || 0) + 1;
+    });
+  });
+
+  const topCauses = Object.entries(causeCounts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 2)
+    .map(([cause]) => cause);
+
+  const moodByDate = {};
+  dailyRows.forEach((row) => {
+    if (row.moodValue !== null && row.moodValue !== undefined) {
+      moodByDate[row.date] = Number(row.moodValue.toFixed(1));
+    }
+  });
+
+  const stats = createWeeklyStats();
+  const dailyResult = buildDailyForWeek({ start, moodByDate, stats });
+  const teamSize = memberRows.length;
+  const publicDaily = dailyResult.daily.map((entry) => ({
+    date: entry.date,
+    moodValue: entry.moodValue === null || entry.moodValue === undefined ? null : Number((entry.moodValue / 10).toFixed(1)),
+    label: entry.label
+  }));
+  const trendSummary = getDailyTrendSummary(publicDaily);
+  const metrics = {
+    averageMood: moodCount ? Number((moodTotal / moodCount / 10).toFixed(1)) : null,
+    participation: activeMemberCount,
+    participationRate: teamSize ? Math.round((activeMemberCount * 100) / teamSize) : 0,
+    topCauses,
+    feedbackCategories,
+    daily: publicDaily
+  };
+  const feedbackLabels = Object.entries(feedbackCategories).reduce((acc, [category, count]) => {
+    acc[FEEDBACK_CATEGORY_LABELS[category] || category.toLowerCase()] = count;
+    return acc;
+  }, {});
+
+  const summaryText = await groqClient.generateTeamWeeklyInsight({
+    weekStart: rangeStartStr,
+    weekEnd: rangeEndStr,
+    metrics,
+    insightContext: {
+      teamSize,
+      moodBand: getMoodBand(metrics.averageMood),
+      topCauseLabels: topCauses.map((cause) => CAUSE_LABELS[cause] || cause.toLowerCase()),
+      feedbackCategoryLabels: feedbackLabels,
+      trend: trendSummary.trend,
+      trendStrength: trendSummary.strength,
+      lowestDay: trendSummary.lowestDay,
+      highestDay: trendSummary.highestDay,
+      trendSummary: trendSummary.summary
+    }
+  });
+
+  return {
+    weekStart: rangeStartStr,
+    weekEnd: rangeEndStr,
+    teamId,
+    generated: true,
+    summaryText,
+    metrics
+  };
+};
+
 const createTeam = async ({ name, organizationId, userOrganizationId }) => {
   if (!name) {
     throw new AppError('name is required', 400, 'VALIDATION_ERROR');
@@ -277,6 +506,7 @@ module.exports = {
   getTeamStats,
   getWeeklySummary,
   getWeeklyFactors,
+  getWeeklyInsight,
   createTeam,
   addMember
 };

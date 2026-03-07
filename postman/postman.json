@@ -895,6 +895,41 @@
           "response": []
         },
         {
+          "name": "Get team weekly insight (AI)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-insight?weekStart={{team_week_start}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-insight"
+              ],
+              "query": [
+                {
+                  "key": "weekStart",
+                  "value": "{{team_week_start}}"
+                },
+                {
+                  "key": "teamId",
+                  "value": "{{current_team_id}}",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Génère la synthèse IA hebdomadaire d'équipe. Pré-requis conseillé: se connecter avec un compte seed manager ou employee pour charger `auth_token`. `teamId` peut rester désactivé pour utiliser l'équipe du membre connecté."
+          },
+          "response": []
+        },
+        {
           "name": "Get team monthly factors",
           "request": {
             "method": "GET",
@@ -999,6 +1034,11 @@
     {
       "key": "current_team_id",
       "value": "",
+      "type": "default"
+    },
+    {
+      "key": "team_week_start",
+      "value": "2026-02-16",
       "type": "default"
     },
     {

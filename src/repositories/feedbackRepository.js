@@ -42,7 +42,25 @@ const createFeedback = async ({ id, userId, category, feedbackText, solutionText
   await db.run(sql, [id, userId, category, feedbackText, solutionText, isAnonymous]);
 };
 
+const getWeeklyCategoryCountsByTeam = async (teamId, startDate, endDate) => {
+  const sql = `
+    SELECT f.category, COUNT(*)::int as count
+    FROM feedbacks f
+    INNER JOIN team_members tm ON tm.user_id = f.user_id
+    WHERE tm.team_id = $1
+      AND DATE(f.created_at AT TIME ZONE 'UTC') BETWEEN $2::date AND $3::date
+    GROUP BY f.category
+    ORDER BY COUNT(*) DESC, f.category ASC
+  `;
+  const rows = await db.all(sql, [teamId, startDate, endDate]);
+  rows.forEach((row) => {
+    validateRow(Feedback.pick({ category: true }), row);
+  });
+  return rows;
+};
+
 module.exports = {
   listByUserId,
-  createFeedback
+  createFeedback,
+  getWeeklyCategoryCountsByTeam
 };
