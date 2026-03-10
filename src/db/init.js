@@ -29,6 +29,7 @@ const initDb = async () => {
         id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
+        password_hash TEXT,
         role TEXT NOT NULL CHECK (role IN ('employee', 'manager', 'director', 'admin')),
         first_name TEXT,
         last_name TEXT,
@@ -44,6 +45,8 @@ const initDb = async () => {
         FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
       )
     `);
+
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT');
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS team_members (

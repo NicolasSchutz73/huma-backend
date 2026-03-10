@@ -1,13 +1,35 @@
 require('dotenv').config();
 const app = require('./app');
 const config = require('./config');
+const initDb = require('./db/init');
+const { seedDevelopmentData } = require('./db/seed');
 
-const server = app.listen(config.port, () => {
-  console.log(`Server running in ${config.env} mode on port ${config.port}`);
-});
+let server;
+
+const startServer = async () => {
+  await initDb();
+  await seedDevelopmentData();
+
+  server = app.listen(config.port, () => {
+    console.log(`Server running in ${config.env} mode on port ${config.port}`);
+  });
+};
+
+(async () => {
+  try {
+    await startServer();
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+})();
 
 const shutdown = (signal) => {
   console.log(`Received ${signal}, shutting down gracefully...`);
+  if (!server) {
+    process.exit(0);
+    return;
+  }
   server.close(() => {
     console.log('HTTP server closed.');
     process.exit(0);

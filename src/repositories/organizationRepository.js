@@ -17,11 +17,31 @@ const getAnyOrganizationId = async () => {
   return row ? row.id : null;
 };
 
+const getByName = async (name) => {
+  const row = await db.get('SELECT id, name FROM organizations WHERE name = $1 LIMIT 1', [name]);
+  validateRow(Organization.pick({ id: true, name: true }), row);
+  return row || null;
+};
+
 const createOrganization = async (id, name) => {
   await db.run('INSERT INTO organizations (id, name) VALUES ($1, $2)', [id, name]);
 };
 
+const createIfNotExists = async ({ id, name }) => {
+  const existingOrg = await getByName(name);
+  if (existingOrg) {
+    return { organization: existingOrg, created: false };
+  }
+  await createOrganization(id, name);
+  return {
+    organization: { id, name },
+    created: true
+  };
+};
+
 module.exports = {
   getAnyOrganizationId,
-  createOrganization
+  getByName,
+  createOrganization,
+  createIfNotExists
 };

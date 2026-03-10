@@ -35,10 +35,32 @@ const weeklySummary = z.object({
   })
 });
 
+const weeklyInsight = z.object({
+  query: z.object({
+    teamId: z.string().min(1).optional(),
+    weekStart: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+  })
+});
+
+const weeklyAnalysisReport = z.object({
+  query: z.object({
+    teamId: z.string().min(1).optional(),
+    weekStart: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+  })
+});
+
 module.exports = {
   createTeam,
   addMember,
   stats,
   weeklySummary,
-  weeklyFactors: weeklySummary
+  weeklyFactors: weeklySummary,
+  weeklyInsight,
+  weeklyAnalysisReport
 };
