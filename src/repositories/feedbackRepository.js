@@ -34,12 +34,65 @@ const listByUserId = async (userId) => {
   return rows;
 };
 
+const listAll = async () => {
+  const sql = `
+    SELECT id, category, DATE(created_at) as date, status, feedback_text, solution_text, is_anonymous
+    FROM feedbacks
+    ORDER BY created_at DESC
+  `;
+  const rows = await db.all(sql);
+  rows.forEach((row) => {
+    validateRow(
+      Feedback.pick({
+        id: true,
+        category: true,
+        status: true,
+        feedback_text: true,
+        solution_text: true,
+        is_anonymous: true
+      }),
+      row
+    );
+  });
+  return rows;
+};
+
+const getById = async (feedbackId) => {
+  const sql = `
+    SELECT id, category, DATE(created_at) as date, status, feedback_text, solution_text, is_anonymous
+    FROM feedbacks
+    WHERE id = $1
+  `;
+  const row = await db.get(sql, [feedbackId]);
+  validateRow(
+    Feedback.pick({
+      id: true,
+      category: true,
+      status: true,
+      feedback_text: true,
+      solution_text: true,
+      is_anonymous: true
+    }),
+    row
+  );
+  return row;
+};
+
 const createFeedback = async ({ id, userId, category, feedbackText, solutionText, isAnonymous }) => {
   const sql = `
     INSERT INTO feedbacks (id, user_id, category, feedback_text, solution_text, is_anonymous)
     VALUES ($1, $2, $3, $4, $5, $6)
   `;
   await db.run(sql, [id, userId, category, feedbackText, solutionText, isAnonymous]);
+};
+
+const updateStatus = async ({ feedbackId, status }) => {
+  const sql = `
+    UPDATE feedbacks
+    SET status = $1
+    WHERE id = $2
+  `;
+  await db.run(sql, [status, feedbackId]);
 };
 
 const getWeeklyCategoryCountsByTeam = async (teamId, startDate, endDate) => {
@@ -60,7 +113,10 @@ const getWeeklyCategoryCountsByTeam = async (teamId, startDate, endDate) => {
 };
 
 module.exports = {
+  getById,
+  listAll,
   listByUserId,
   createFeedback,
+  updateStatus,
   getWeeklyCategoryCountsByTeam
 };

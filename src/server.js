@@ -2,13 +2,11 @@ require('dotenv').config();
 const app = require('./app');
 const config = require('./config');
 const initDb = require('./db/init');
-const { seedDevelopmentData } = require('./db/seed');
 
 let server;
 
 const startServer = async () => {
   await initDb();
-  await seedDevelopmentData();
 
   server = app.listen(config.port, () => {
     console.log(`Server running in ${config.env} mode on port ${config.port}`);

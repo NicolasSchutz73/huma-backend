@@ -19,6 +19,18 @@ const createFeedback = z.object({
   })
 });
 
+const FEEDBACK_STATUSES = ['pending', 'vu', 'en_cours', 'resolu', 'archive'];
+
+const updateFeedbackStatus = z.object({
+  params: z.object({
+    id: z.string().min(1)
+  }),
+  body: z.object({
+    status: z.enum(FEEDBACK_STATUSES)
+  })
+});
+
 module.exports = {
-  createFeedback
+  createFeedback,
+  updateFeedbackStatus
 };
