@@ -12,6 +12,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user_routes');
 const checkinRoutes = require('./routes/checkins');
 const feedbackRoutes = require('./routes/feedbacks');
+const adminRoutes = require('./routes/admin');
 const teamRoutes = require('./routes/team');
 
 const app = express();
@@ -52,6 +53,7 @@ app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/checkins', checkinRoutes);
 app.use('/feedbacks', feedbackRoutes);
+app.use('/admin', adminRoutes);
 app.use('/team', teamRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
