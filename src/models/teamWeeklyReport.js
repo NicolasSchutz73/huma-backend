@@ -1,12 +1,13 @@
 const { z } = require('zod');
 
 const dbDateTime = z.union([z.string(), z.date()]);
+const dbDate = z.union([z.string(), z.date()]);
 
 const TeamWeeklyReport = z.object({
   id: z.string(),
   team_id: z.string(),
-  week_start: z.string(),
-  week_end: z.string(),
+  week_start: dbDate,
+  week_end: dbDate,
   report_type: z.string(),
   payload_json: z.any(),
   generation_count: z.number().int(),

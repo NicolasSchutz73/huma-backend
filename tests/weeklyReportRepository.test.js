@@ -10,6 +10,8 @@ test('team weekly report repository accepts Date objects from pg timestamp colum
   const generatedAt = new Date('2026-02-28T09:00:00.000Z');
   const createdAt = new Date('2026-02-28T09:01:00.000Z');
   const updatedAt = new Date('2026-02-28T09:02:00.000Z');
+  const weekStart = new Date('2026-02-23T00:00:00.000Z');
+  const weekEnd = new Date('2026-02-27T00:00:00.000Z');
 
   const report = await teamWeeklyReportRepository.getByScope({
     teamId: 'team-1',
@@ -20,8 +22,8 @@ test('team weekly report repository accepts Date objects from pg timestamp colum
           rows: [{
             id: 'report-1',
             team_id: 'team-1',
-            week_start: '2026-02-23',
-            week_end: '2026-02-27',
+            week_start: weekStart,
+            week_end: weekEnd,
             report_type: 'weekly_analysis_report',
             payload_json: { generated: true },
             generation_count: 1,
@@ -36,6 +38,8 @@ test('team weekly report repository accepts Date objects from pg timestamp colum
     }
   });
 
+  assert.strictEqual(report.weekStart, '2026-02-23');
+  assert.strictEqual(report.weekEnd, '2026-02-27');
   assert.strictEqual(report.generatedAt, generatedAt.toISOString());
   assert.strictEqual(report.createdAt, createdAt.toISOString());
   assert.strictEqual(report.updatedAt, updatedAt.toISOString());
@@ -45,6 +49,8 @@ test('user weekly insight repository accepts Date objects from pg timestamp colu
   const generatedAt = new Date('2026-02-28T09:00:00.000Z');
   const createdAt = new Date('2026-02-28T09:01:00.000Z');
   const updatedAt = new Date('2026-02-28T09:02:00.000Z');
+  const weekStart = new Date('2026-02-23T00:00:00.000Z');
+  const weekEnd = new Date('2026-02-27T00:00:00.000Z');
 
   const insight = await userWeeklyInsightRepository.getByScope({
     userId: 'user-1',
@@ -55,8 +61,8 @@ test('user weekly insight repository accepts Date objects from pg timestamp colu
           rows: [{
             id: 'insight-1',
             user_id: 'user-1',
-            week_start: '2026-02-23',
-            week_end: '2026-02-27',
+            week_start: weekStart,
+            week_end: weekEnd,
             payload_json: { generated: true },
             generated_at: generatedAt,
             created_by_user_id: 'user-1',
@@ -69,6 +75,8 @@ test('user weekly insight repository accepts Date objects from pg timestamp colu
     }
   });
 
+  assert.strictEqual(insight.weekStart, '2026-02-23');
+  assert.strictEqual(insight.weekEnd, '2026-02-27');
   assert.strictEqual(insight.generatedAt, generatedAt.toISOString());
   assert.strictEqual(insight.createdAt, createdAt.toISOString());
   assert.strictEqual(insight.updatedAt, updatedAt.toISOString());

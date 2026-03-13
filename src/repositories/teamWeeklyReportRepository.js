@@ -12,6 +12,13 @@ const toIsoString = (value) => {
   return value;
 };
 
+const toDateOnly = (value) => {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  return value;
+};
+
 const validateRow = (row) => {
   if (!row) return row;
   const result = TeamWeeklyReport.safeParse(row);
@@ -26,8 +33,8 @@ const mapRow = (row) => {
   return {
     id: row.id,
     teamId: row.team_id,
-    weekStart: row.week_start,
-    weekEnd: row.week_end,
+    weekStart: toDateOnly(row.week_start),
+    weekEnd: toDateOnly(row.week_end),
     reportType: row.report_type,
     payload: typeof row.payload_json === 'string' ? JSON.parse(row.payload_json) : row.payload_json,
     generationCount: row.generation_count,

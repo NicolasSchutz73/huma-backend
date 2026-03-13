@@ -9,6 +9,13 @@ const toIsoString = (value) => {
   return value;
 };
 
+const toDateOnly = (value) => {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  return value;
+};
+
 const validateRow = (row) => {
   if (!row) return row;
   const result = UserWeeklyInsight.safeParse(row);
@@ -23,8 +30,8 @@ const mapRow = (row) => {
   return {
     id: row.id,
     userId: row.user_id,
-    weekStart: row.week_start,
-    weekEnd: row.week_end,
+    weekStart: toDateOnly(row.week_start),
+    weekEnd: toDateOnly(row.week_end),
     payload: typeof row.payload_json === 'string' ? JSON.parse(row.payload_json) : row.payload_json,
     generatedAt: toIsoString(row.generated_at),
     createdByUserId: row.created_by_user_id,
