@@ -86,13 +86,13 @@ const AnalysisReportSchema = z.object({
     title: z.string().min(1),
     weight: z.number().int().min(0).max(100),
     description: z.string().min(1)
-  })).length(3),
+  })).min(1).max(3),
   weaknesses: z.array(z.object({
     rank: z.number().int().min(1),
     title: z.string().min(1),
     weight: z.number().int().min(0).max(100),
     description: z.string().min(1)
-  })).length(5),
+  })).min(1).max(5),
   strengthsSummary: z.string().min(1),
   weaknessesSummary: z.string().min(1),
   recommendedActions: z.array(z.object({
@@ -656,6 +656,12 @@ const normalizeSectionItems = (items) =>
     description: item.description
   }));
 
+const reRankSectionItems = (items) =>
+  normalizeSectionItems(items).map((item, index) => ({
+    ...item,
+    rank: index + 1
+  }));
+
 const normalizeStoredAnalysisReportPayload = (payload) => ({
   ...payload,
   strengths: normalizeSectionItems(payload.strengths),
@@ -687,22 +693,13 @@ const normalizeStoredAnalysisReportPayload = (payload) => ({
 
 const buildFallbackStrengths = (context) => {
   const excludedCauses = getExcludedWeaknessCauses(context.topCauseWeights);
-  const base = dedupeByTitle(getStrengthCandidates({
+  return dedupeByTitle(getStrengthCandidates({
     ...context,
     excludedCauses
   }))
     .sort((a, b) => b.weight - a.weight || a.title.localeCompare(b.title))
-    .slice(0, 3);
-
-  while (base.length < 3) {
-    base.push({
-      title: `Point fort complémentaire ${base.length + 1}`,
-      weight: 10,
-      description: "Le collectif conserve des points d'appui malgré les tensions observées."
-    });
-  }
-
-  return base.map((item, index) => ({
+    .slice(0, 3)
+    .map((item, index) => ({
     rank: index + 1,
     title: item.title,
     weight: clampWeight(item.weight),
@@ -711,19 +708,10 @@ const buildFallbackStrengths = (context) => {
 };
 
 const buildFallbackWeaknesses = (context) => {
-  const base = getWeaknessCandidates(context)
+  return getWeaknessCandidates(context)
     .sort((a, b) => b.weight - a.weight || a.title.localeCompare(b.title))
-    .slice(0, 5);
-
-  while (base.length < 5) {
-    base.push({
-      title: `Point d'attention complémentaire ${base.length + 1}`,
-      weight: 0,
-      description: "Aucun signal critique supplémentaire n'émerge sur cette période."
-    });
-  }
-
-  return base.map((item, index) => ({
+    .slice(0, 5)
+    .map((item, index) => ({
     rank: index + 1,
     title: item.title,
     weight: clampWeight(item.weight),
@@ -984,8 +972,8 @@ const normalizeAnalysisReport = ({ llmReport, context }) => {
   }
 
   return {
-    strengths: fallbackStrengths,
-    weaknesses: fallbackWeaknesses,
+    strengths: reRankSectionItems(parsed.data.strengths),
+    weaknesses: reRankSectionItems(parsed.data.weaknesses),
     strengthsSummary: parsed.data.strengthsSummary,
     weaknessesSummary: parsed.data.weaknessesSummary,
     recommendedActions,

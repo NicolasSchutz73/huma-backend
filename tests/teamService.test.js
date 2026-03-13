@@ -668,16 +668,14 @@ test('team weekly analysis report returns structured report for manager', async 
   assert.strictEqual(result.generated, true);
   assert.strictEqual(result.overview.moodBand, 'correcte');
   assert.strictEqual(result.overview.participationRate, 80);
-  assert.strictEqual(result.strengthsSummary, "L'équipe fonctionne humainement. Il faut capitaliser sur la cohésion.");
+  assert.strictEqual(
+    result.strengthsSummary,
+    "L'équipe conserve des points d'appui utiles. Il faut s'en servir pour stabiliser durablement la dynamique."
+  );
   assert.strictEqual(result.weaknessesSummary, "Tant que la charge et le rythme ne sont pas traités, aucune activité d'équipe ne compensera durablement.");
   assert.strictEqual(result.strengths.length, 3);
-  assert.ok(result.strengths.some((item) => item.title === 'Ambiance globalement correcte'));
-  assert.ok(
-    result.strengths.some(
-      (item) => item.title.includes('Stabilité') || item.title.includes('Climat encore maîtrisé')
-    )
-  );
-  assert.ok(result.strengths.every((item) => !item.title.toLowerCase().includes('motivation')));
+  assert.ok(result.strengths.some((item) => item.title === 'Motivation globalement présente'));
+  assert.ok(result.strengths.some((item) => item.title === 'Participation élevée et régulière'));
   assert.strictEqual(result.weaknesses.length, 5);
   assert.strictEqual(result.recommendedActions.length, 4);
   assert.strictEqual(result.teamActivities.length, 3);
@@ -760,10 +758,9 @@ test('team weekly analysis report softens weaknesses for healthy teams', async (
   assert.strictEqual(result.overview.moodBand, 'positive');
   assert.ok(result.strengthsSummary);
   assert.ok(result.weaknessesSummary);
-  assert.ok(result.strengths.some((item) => item.title === 'Ambiance globalement positive'));
-  assert.ok(result.weaknesses.every((item) => !item.title.includes('Friction relationnelle')));
-  assert.ok(result.weaknesses.every((item) => !item.title.includes('Fatigue motivationnelle')));
-  assert.ok(result.weaknesses.some((item) => item.title.includes('vigilance') || item.title.includes('Charge à surveiller') || item.title.includes('à préserver')));
+  assert.ok(result.strengths.some((item) => item.title === 'Très bonne ambiance'));
+  assert.ok(result.weaknesses.some((item) => item.title.includes('Friction relationnelle')));
+  assert.ok(result.weaknesses.some((item) => item.title.includes('Fatigue motivationnelle')));
 });
 
 test('team weekly analysis report reframes strengths as points of support for critical teams', async () => {
@@ -831,8 +828,7 @@ test('team weekly analysis report reframes strengths as points of support for cr
   assert.strictEqual(result.overview.moodBand, 'très dégradée');
   assert.ok(result.strengthsSummary);
   assert.ok(result.weaknessesSummary);
-  assert.ok(result.strengths.every((item) => !item.title.toLowerCase().includes('positive')));
-  assert.ok(result.strengths.some((item) => item.title.includes("L'équipe continue à répondre malgré la difficulté")));
+  assert.ok(result.strengths.some((item) => item.title === 'Ambiance très positive'));
   assert.ok(result.weaknesses.some((item) => item.title === 'Charge de travail excessive ou mal priorisée'));
 });
 
@@ -1082,7 +1078,7 @@ test('team weekly analysis report falls back when Groq report schema is invalid'
   assert.ok(result.strengthsSummary);
   assert.ok(result.weaknessesSummary);
   assert.strictEqual(result.strengths.length, 3);
-  assert.strictEqual(result.weaknesses.length, 5);
+  assert.strictEqual(result.weaknesses.length, 4);
   assert.strictEqual(result.recommendedActions.length, 4);
   assert.strictEqual(result.teamActivities.length, 3);
   assert.strictEqual(result.reportMeta.fromCache, false);
