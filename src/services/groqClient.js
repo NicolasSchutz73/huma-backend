@@ -5,13 +5,22 @@ const DEFAULT_TIMEOUT_MS = 8000;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const formatScore = (value) => String(value).replace('.', ',');
+const formatDisplayDate = (value) => {
+  if (typeof value !== 'string') return value;
+
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return value;
+
+  const [, year, month, day] = match;
+  return `${day}-${month}-${year}`;
+};
 
 const buildPrompt = ({ weekStart, weekEnd, metrics, insightContext }) => {
   const dailyTrendText = metrics.daily.length
     ? metrics.daily
       .map((entry) => {
         const moodText = entry.moodValue === null ? 'aucune donnée' : `${formatScore(entry.moodValue)}/10`;
-        return `${entry.date}: ${moodText} (${entry.label})`;
+        return `${formatDisplayDate(entry.date)}: ${moodText} (${entry.label})`;
       })
       .join(' | ')
     : 'aucune donnée';
@@ -23,10 +32,10 @@ const buildPrompt = ({ weekStart, weekEnd, metrics, insightContext }) => {
     ? JSON.stringify(insightContext.feedbackCategoryLabels)
     : 'aucun feedback cette semaine';
   const lowestDayText = insightContext.lowestDay
-    ? `${insightContext.lowestDay.date} à ${formatScore(insightContext.lowestDay.moodValue)}/10`
+    ? `${formatDisplayDate(insightContext.lowestDay.date)} à ${formatScore(insightContext.lowestDay.moodValue)}/10`
     : 'aucun point bas identifié';
   const highestDayText = insightContext.highestDay
-    ? `${insightContext.highestDay.date} à ${formatScore(insightContext.highestDay.moodValue)}/10`
+    ? `${formatDisplayDate(insightContext.highestDay.date)} à ${formatScore(insightContext.highestDay.moodValue)}/10`
     : 'aucun point haut identifié';
   const averageMoodText = metrics.averageMood === null ? 'aucune donnée' : `${formatScore(metrics.averageMood)}/10`;
 
@@ -42,7 +51,7 @@ const buildPrompt = ({ weekStart, weekEnd, metrics, insightContext }) => {
     "Privilégie une lecture utile produit: ambiance positive, correcte, fragile ou très dégradée; stabilité, léger mieux, tassement, vigilance modérée, pas de signal d'alerte fort.",
     "N'invente aucun fait absent du contexte. Ne parle pas de hausse de participation si le contexte ne le dit pas.",
     '',
-    `Semaine: ${weekStart} -> ${weekEnd}`,
+    `Semaine: ${formatDisplayDate(weekStart)} -> ${formatDisplayDate(weekEnd)}`,
     `Taille de l'équipe: ${insightContext.teamSize} membre(s)`,
     `Niveau d'ambiance: ${insightContext.moodBand}`,
     `Humeur moyenne: ${averageMoodText}`,
@@ -139,6 +148,73 @@ const generateTeamWeeklyInsight = async ({ weekStart, weekEnd, metrics, insightC
   });
 };
 
+const buildUserWeeklyInsightPrompt = ({ weekStart, weekEnd, metrics, insightContext }) => {
+  const dailyTrendText = metrics.daily.length
+    ? metrics.daily
+      .map((entry) => {
+        const moodText = entry.moodValue === null ? 'aucune donnée' : `${formatScore(entry.moodValue)}/10`;
+        return `${formatDisplayDate(entry.date)}: ${moodText} (${entry.label})`;
+      })
+      .join(' | ')
+    : 'aucune donnée';
+
+  const topLevers = insightContext.topCauseLabels.length
+    ? insightContext.topCauseLabels.join(', ')
+    : 'aucun levier dominant';
+  const feedbackSignals = Object.keys(insightContext.feedbackCategoryLabels).length
+    ? JSON.stringify(insightContext.feedbackCategoryLabels)
+    : 'aucun feedback cette semaine';
+  const lowestDayText = insightContext.lowestDay
+    ? `${formatDisplayDate(insightContext.lowestDay.date)} à ${formatScore(insightContext.lowestDay.moodValue)}/10`
+    : 'aucun point bas identifié';
+  const highestDayText = insightContext.highestDay
+    ? `${formatDisplayDate(insightContext.highestDay.date)} à ${formatScore(insightContext.highestDay.moodValue)}/10`
+    : 'aucun point haut identifié';
+  const averageMoodText = metrics.averageMood === null ? 'aucune donnée' : `${formatScore(metrics.averageMood)}/10`;
+
+  return [
+    'Tu rédiges un bilan hebdomadaire personnel pour un salarié dans un produit SaaS RH.',
+    'Rédige en français naturel, factuel, direct et rassurant quand les données le permettent.',
+    'Réponds en exactement 3 phrases courtes.',
+    "Parle à la 2e personne du singulier et commence directement par 'Ta semaine' ou un constat équivalent naturel.",
+    "N'utilise jamais de codes techniques ou d'anglais comme CLARITY, BALANCE, WORKLOAD. Utilise uniquement les libellés métier français fournis.",
+    "Structure impérative: phrase 1 = dynamique globale + humeur moyenne + participation. Phrase 2 = évolution dans la semaine avec point bas ou stabilité. Phrase 3 = conclusion globale sur l'équilibre, les ressentis dominants ou une vigilance modérée.",
+    "S'il n'y a pas de variation marquée, parle explicitement de stabilité ou de faible variation.",
+    "S'il n'y a pas de feedback, n'invente pas de retours remontés.",
+    "N'invente aucun fait absent du contexte. Ne donne aucun conseil, ne propose aucune action, ne parle pas d'équipe ou de manager.",
+    '',
+    `Semaine: ${formatDisplayDate(weekStart)} -> ${formatDisplayDate(weekEnd)}`,
+    `Niveau d'ambiance: ${insightContext.moodBand}`,
+    `Humeur moyenne: ${averageMoodText}`,
+    `Participation: ${metrics.participation} check-in(s) sur 5, soit ${metrics.participationRate}%`,
+    `Tendance globale: ${insightContext.trend}`,
+    `Intensité de variation: ${insightContext.trendStrength}`,
+    `Point bas: ${lowestDayText}`,
+    `Point haut: ${highestDayText}`,
+    `Aide à l'interprétation de la tendance: ${insightContext.trendSummary}`,
+    `Leviers dominants: ${topLevers}`,
+    `Signaux feedback agrégés: ${feedbackSignals}`,
+    `Détail quotidien: ${dailyTrendText}`
+  ].join('\n');
+};
+
+const generateUserWeeklyInsight = async ({ weekStart, weekEnd, metrics, insightContext }) => {
+  return callGroq({
+    payload: {
+      messages: [
+        {
+          role: 'system',
+          content: 'Tu fournis des bilans personnels RH courts, exacts, naturels et prudents.'
+        },
+        {
+          role: 'user',
+          content: buildUserWeeklyInsightPrompt({ weekStart, weekEnd, metrics, insightContext })
+        }
+      ]
+    }
+  });
+};
+
 const buildAnalysisReportPrompt = ({ context, actionCatalog, activityCatalog }) => {
   return [
     'Tu es un analyste RH senior qui produit un rapport d’aide à la décision pour un manager.',
@@ -207,5 +283,6 @@ const generateTeamWeeklyAnalysisReport = async ({ context, actionCatalog, activi
 
 module.exports = {
   generateTeamWeeklyInsight,
+  generateUserWeeklyInsight,
   generateTeamWeeklyAnalysisReport
 };

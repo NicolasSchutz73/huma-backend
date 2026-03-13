@@ -17,14 +17,21 @@ Variables minimales :
 
 Variables utiles :
 - `PORT` (défaut `3000`)
-- `NODE_ENV` (mettre `development` pour activer le seed)
+- `NODE_ENV` (mettre `development` pour autoriser `POST /admin/seed`)
 - `JWT_EXPIRES_IN`
 - `GROQ_API_KEY`
 - `GROQ_MODEL`
 - `GROQ_TIMEOUT_MS`
 
 ## Seed local de démo
-En mode `development`, le backend seed automatiquement un dataset de démonstration stable sur `30 jours`.
+En mode `development`, le backend expose un endpoint manuel pour seed un dataset de démonstration stable sur `30 jours`.
+
+Endpoint :
+- `POST /admin/seed`
+
+Contraintes :
+- JWT admin requis
+- disponible uniquement en `development`
 
 Comptes créés :
 - `admin@local.test`
@@ -109,7 +116,9 @@ Vue manager IA :
 
 Feedbacks :
 - `POST /feedbacks`
-- `GET /feedbacks/history`
+- `GET /feedbacks`
+- `GET /feedbacks/mine`
+- `PATCH /feedbacks/:id/status`
 
 Check-ins individuels :
 - `POST /checkins`
@@ -137,19 +146,36 @@ Le contraste attendu :
 - `manager2` : irritants plus lourds, actions correctives plus prioritaires, activités d'équipe en complément
 
 ## Collection Postman
-La collection `postman/postman.json` contient :
-- les logins seed
-- les endpoints équipe classiques
-- les endpoints IA
-- des scénarios de démo prêts à jouer pour :
-  - équipe saine
-  - équipe sous tension
-  - vue manager
-  - vue salarié
+Collection canonique :
+- `postman/postman.json`
 
-Conseil d'usage :
-1. lancer `login (manager healthy demo)` ou `login (manager struggling demo)`
-2. exécuter les requêtes du dossier `demo scenarios`
+Environnements fournis :
+- `postman/local.postman_environment.json`
+- `postman/server.postman_environment.json`
+
+La collection fonctionne à la fois :
+- en local avec les comptes seedés par défaut
+- sur Render avec des placeholders à compléter pour les comptes distants
+
+Répartition des variables :
+- environnements : `base_url`, credentials fixes, comptes de démo et options liées au contexte
+- collection : tokens et ids sauvegardés pendant le run
+
+Parcours recommandé en local :
+1. importer `postman/postman.json` et `postman/local.postman_environment.json`
+2. lancer `auth / login (admin seed)`
+3. lancer `admin / Run development seed`
+4. utiliser ensuite les dossiers `auth`, `users`, `checkins (météo du jour)`, `feedbacks` et `team`
+
+Parcours recommandé sur Render :
+1. importer `postman/postman.json` et `postman/server.postman_environment.json`
+2. renseigner les credentials du serveur dans l’environnement
+3. lancer `auth / login (manager seed)`
+4. exécuter les requêtes utiles par dossier
+
+Notes :
+- `POST /admin/seed` retournera `403` sur Render car l’endpoint n’est disponible qu’en `development`
+- la collection inclut aussi le parcours feedback complet : création, lecture globale, lecture personnelle et mise à jour de statut par manager
 
 ## Commandes utiles
 ```bash

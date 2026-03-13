@@ -51,6 +51,11 @@ const weeklyAnalysisReport = z.object({
     weekStart: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    forceRegenerate: z
+      .enum(['true', 'false'])
+      .optional()
+      .transform((value) => value === 'true')
       .optional()
   })
 });

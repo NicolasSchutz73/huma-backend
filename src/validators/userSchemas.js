@@ -15,7 +15,17 @@ const completeOnboarding = z.object({
   })
 });
 
+const weeklyInsight = z.object({
+  query: z.object({
+    weekStart: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+  })
+});
+
 module.exports = {
   updateUserInfo,
-  completeOnboarding
+  completeOnboarding,
+  weeklyInsight
 };

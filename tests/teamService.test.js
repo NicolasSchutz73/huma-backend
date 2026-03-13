@@ -4,7 +4,10 @@ const assert = require('node:assert');
 process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://user:pass@localhost:5432/huma_test';
 
 const teamRepository = require('../src/repositories/teamRepository');
+const dbPool = require('../src/db/index');
 const feedbackRepository = require('../src/repositories/feedbackRepository');
+const teamWeeklyReportRepository = require('../src/repositories/teamWeeklyReportRepository');
+const userRepository = require('../src/repositories/userRepository');
 const groqClient = require('../src/services/groqClient');
 const teamService = require('../src/services/teamService');
 const { AppError } = require('../src/utils/errors');
@@ -16,10 +19,24 @@ const originalRepository = {
   getByDateRangeWithCauses: teamRepository.getByDateRangeWithCauses,
   getMemberIdsByTeam: teamRepository.getMemberIdsByTeam,
   getActiveMemberCountByDateRange: teamRepository.getActiveMemberCountByDateRange,
-  getTeamById: teamRepository.getTeamById
+  getTeamById: teamRepository.getTeamById,
+  createTeam: teamRepository.createTeam,
+  addMember: teamRepository.addMember
+};
+const originalUserRepository = {
+  getIdById: userRepository.getIdById
 };
 const originalFeedbackRepository = {
   getWeeklyCategoryCountsByTeam: feedbackRepository.getWeeklyCategoryCountsByTeam
+};
+const originalTeamWeeklyReportRepository = {
+  getByScope: teamWeeklyReportRepository.getByScope,
+  getByScopeForUpdate: teamWeeklyReportRepository.getByScopeForUpdate,
+  createReport: teamWeeklyReportRepository.createReport,
+  updateReport: teamWeeklyReportRepository.updateReport
+};
+const originalDbPool = {
+  connect: dbPool.connect
 };
 const originalGroqClient = {
   generateTeamWeeklyInsight: groqClient.generateTeamWeeklyInsight,
@@ -34,9 +51,103 @@ test.afterEach(() => {
   teamRepository.getMemberIdsByTeam = originalRepository.getMemberIdsByTeam;
   teamRepository.getActiveMemberCountByDateRange = originalRepository.getActiveMemberCountByDateRange;
   teamRepository.getTeamById = originalRepository.getTeamById;
+  teamRepository.createTeam = originalRepository.createTeam;
+  teamRepository.addMember = originalRepository.addMember;
+  userRepository.getIdById = originalUserRepository.getIdById;
   feedbackRepository.getWeeklyCategoryCountsByTeam = originalFeedbackRepository.getWeeklyCategoryCountsByTeam;
+  teamWeeklyReportRepository.getByScope = originalTeamWeeklyReportRepository.getByScope;
+  teamWeeklyReportRepository.getByScopeForUpdate = originalTeamWeeklyReportRepository.getByScopeForUpdate;
+  teamWeeklyReportRepository.createReport = originalTeamWeeklyReportRepository.createReport;
+  teamWeeklyReportRepository.updateReport = originalTeamWeeklyReportRepository.updateReport;
+  dbPool.connect = originalDbPool.connect;
   groqClient.generateTeamWeeklyInsight = originalGroqClient.generateTeamWeeklyInsight;
   groqClient.generateTeamWeeklyAnalysisReport = originalGroqClient.generateTeamWeeklyAnalysisReport;
+});
+
+const createMockClient = () => {
+  const queries = [];
+  return {
+    queries,
+    async query(sql) {
+      queries.push(sql);
+      return { rows: [], rowCount: 0 };
+    },
+    release() {}
+  };
+};
+
+const mockEmptyWeeklyReportCache = () => {
+  const client = createMockClient();
+  dbPool.connect = async () => client;
+  teamWeeklyReportRepository.getByScope = async () => null;
+  teamWeeklyReportRepository.getByScopeForUpdate = async () => null;
+  teamWeeklyReportRepository.createReport = async () => {};
+  teamWeeklyReportRepository.updateReport = async () => {};
+  return client;
+};
+
+test('createTeam rejects employee role', async () => {
+  await assert.rejects(
+    teamService.createTeam({
+      name: 'Equipe C',
+      userOrganizationId: 'org-1',
+      userRole: 'employee'
+    }),
+    (err) => err instanceof AppError && err.status === 403 && err.code === 'FORBIDDEN'
+  );
+});
+
+test('createTeam allows manager role', async () => {
+  let createTeamPayload = null;
+  teamRepository.createTeam = async (payload) => {
+    createTeamPayload = payload;
+  };
+
+  const result = await teamService.createTeam({
+    name: 'Equipe C',
+    userOrganizationId: 'org-1',
+    userRole: 'manager'
+  });
+
+  assert.strictEqual(result.message, 'Équipe créée avec succès');
+  assert.strictEqual(result.team.name, 'Equipe C');
+  assert.strictEqual(result.team.organizationId, 'org-1');
+  assert.ok(createTeamPayload.id);
+  assert.strictEqual(createTeamPayload.name, 'Equipe C');
+  assert.strictEqual(createTeamPayload.organizationId, 'org-1');
+});
+
+test('addMember rejects employee role', async () => {
+  await assert.rejects(
+    teamService.addMember({
+      teamId: 'team-1',
+      userId: 'user-2',
+      userRole: 'employee'
+    }),
+    (err) => err instanceof AppError && err.status === 403 && err.code === 'FORBIDDEN'
+  );
+});
+
+test('addMember allows admin role when team and user exist', async () => {
+  let addMemberPayload = null;
+  teamRepository.getTeamById = async () => ({ id: 'team-1' });
+  userRepository.getIdById = async () => ({ id: 'user-2' });
+  teamRepository.addMember = async (payload) => {
+    addMemberPayload = payload;
+  };
+
+  const result = await teamService.addMember({
+    teamId: 'team-1',
+    userId: 'user-2',
+    userRole: 'admin'
+  });
+
+  assert.strictEqual(result.message, 'Membre ajouté avec succès');
+  assert.strictEqual(result.member.teamId, 'team-1');
+  assert.strictEqual(result.member.userId, 'user-2');
+  assert.ok(addMemberPayload.id);
+  assert.strictEqual(addMemberPayload.teamId, 'team-1');
+  assert.strictEqual(addMemberPayload.userId, 'user-2');
 });
 
 test('team weekly summary returns empty payload when user has no team', async () => {
@@ -56,6 +167,21 @@ test('team weekly summary returns empty payload when user has no team', async ()
   assert.strictEqual(result.stats.correctDays, 0);
   assert.strictEqual(result.stats.difficultDays, 0);
   assert.strictEqual(result.stats.missingDays, 5);
+  assert.deepStrictEqual(result.dashboard, {
+    averageMood: {
+      value: null,
+      deltaVsPreviousWeek: null
+    },
+    participation: {
+      value: 0,
+      deltaVsPreviousWeek: null
+    },
+    qvtBarometer: {
+      value: null,
+      deltaVsPreviousWeek: null,
+      label: 'Indice annuel évolutif'
+    }
+  });
 });
 
 test('team weekly summary rejects with FORBIDDEN when user is not a team member', async () => {
@@ -74,15 +200,29 @@ test('team weekly summary rejects with FORBIDDEN when user is not a team member'
 
 test('team weekly summary computes daily participation and average mood', async () => {
   teamRepository.isMember = async () => true;
-  teamRepository.getByDateRange = async () => [
-    { date: '2026-02-16', moodValue: 70 },
-    { date: '2026-02-18', moodValue: 55 }
-  ];
-  teamRepository.getByDateRangeWithCauses = async () => [
-    { date: '2026-02-16', moodValue: 80, causes: '["WORKLOAD"]' },
-    { date: '2026-02-16', moodValue: 60, causes: '["BALANCE"]' },
-    { date: '2026-02-18', moodValue: 55, causes: '["RELATIONS"]' }
-  ];
+  teamRepository.getByDateRange = async (_teamId, startDate) => {
+    if (startDate === '2026-02-16') {
+      return [
+        { date: '2026-02-16', moodValue: 70 },
+        { date: '2026-02-18', moodValue: 55 }
+      ];
+    }
+    return [
+      { date: '2026-02-10', moodValue: 64 }
+    ];
+  };
+  teamRepository.getByDateRangeWithCauses = async (_teamId, startDate) => {
+    if (startDate === '2026-02-16') {
+      return [
+        { date: '2026-02-16', moodValue: 80, causes: '["WORKLOAD"]' },
+        { date: '2026-02-16', moodValue: 60, causes: '["BALANCE"]' },
+        { date: '2026-02-18', moodValue: 55, causes: '["RELATIONS"]' }
+      ];
+    }
+    return [
+      { date: '2026-02-10', moodValue: 64, causes: '["WORKLOAD"]' }
+    ];
+  };
 
   const result = await teamService.getWeeklySummary({
     userId: 'user-1',
@@ -97,6 +237,60 @@ test('team weekly summary computes daily participation and average mood', async 
   assert.strictEqual(result.stats.excellentDays, 1);
   assert.strictEqual(result.stats.correctDays, 1);
   assert.strictEqual(result.stats.missingDays, 3);
+  assert.deepStrictEqual(result.dashboard, {
+    averageMood: {
+      value: 6.5,
+      deltaVsPreviousWeek: 0.1
+    },
+    participation: {
+      value: 40,
+      deltaVsPreviousWeek: 20
+    },
+    qvtBarometer: {
+      value: 5.2,
+      deltaVsPreviousWeek: 0,
+      label: 'Indice annuel évolutif'
+    }
+  });
+});
+
+test('team weekly summary returns null dashboard deltas when previous week has no exploitable data', async () => {
+  teamRepository.isMember = async () => true;
+  teamRepository.getByDateRange = async (_teamId, startDate) => {
+    if (startDate === '2026-02-16') {
+      return [{ date: '2026-02-16', moodValue: 72 }];
+    }
+    return [];
+  };
+  teamRepository.getByDateRangeWithCauses = async (_teamId, startDate) => {
+    if (startDate === '2026-02-16') {
+      return [{ date: '2026-02-16', moodValue: 72, causes: '["WORKLOAD"]' }];
+    }
+    return [];
+  };
+
+  const result = await teamService.getWeeklySummary({
+    userId: 'user-1',
+    queryTeamId: 'team-1',
+    period: 'week',
+    weekStart: '2026-02-16'
+  });
+
+  assert.deepStrictEqual(result.dashboard, {
+    averageMood: {
+      value: 7.2,
+      deltaVsPreviousWeek: null
+    },
+    participation: {
+      value: 20,
+      deltaVsPreviousWeek: null
+    },
+    qvtBarometer: {
+      value: 5.8,
+      deltaVsPreviousWeek: null,
+      label: 'Indice annuel évolutif'
+    }
+  });
 });
 
 test('team weekly factors builds buckets and ignores malformed causes', async () => {
@@ -336,6 +530,7 @@ test('team weekly analysis report rejects impossible weekStart dates', async () 
 
 test('team weekly analysis report returns structured report for manager', async () => {
   let groqPayload = null;
+  mockEmptyWeeklyReportCache();
 
   teamRepository.isMember = async () => true;
   teamRepository.getMemberIdsByTeam = async () => [
@@ -410,6 +605,14 @@ test('team weekly analysis report returns structured report for manager', async 
   assert.strictEqual(result.weaknesses.length, 5);
   assert.strictEqual(result.recommendedActions.length, 4);
   assert.strictEqual(result.teamActivities.length, 3);
+  assert.deepStrictEqual(result.reportMeta, {
+    fromCache: false,
+    generationCount: 1,
+    generationLimit: 2,
+    canRegenerate: true,
+    generatedAt: result.reportMeta.generatedAt
+  });
+  assert.ok(result.reportMeta.generatedAt);
   assert.strictEqual(result.recommendedActions[0].title, 'Clarifier et réduire la charge de travail');
   assert.strictEqual(result.teamActivities[0].objective, 'Faire émerger irritants et solutions concrètes');
   assert.ok(groqPayload);
@@ -418,6 +621,7 @@ test('team weekly analysis report returns structured report for manager', async 
 });
 
 test('team weekly analysis report softens weaknesses for healthy teams', async () => {
+  mockEmptyWeeklyReportCache();
   teamRepository.isMember = async () => true;
   teamRepository.getMemberIdsByTeam = async () => [
     { user_id: 'u1' },
@@ -483,6 +687,7 @@ test('team weekly analysis report softens weaknesses for healthy teams', async (
 });
 
 test('team weekly analysis report reframes strengths as points of support for critical teams', async () => {
+  mockEmptyWeeklyReportCache();
   teamRepository.isMember = async () => true;
   teamRepository.getMemberIdsByTeam = async () => [
     { user_id: 'u1' },
@@ -548,6 +753,7 @@ test('team weekly analysis report reframes strengths as points of support for cr
 });
 
 test('team weekly analysis report allows admin with explicit teamId', async () => {
+  teamWeeklyReportRepository.getByScope = async () => null;
   teamRepository.getTeamById = async () => 'team-1';
   teamRepository.getMemberIdsByTeam = async () => [];
   teamRepository.getActiveMemberCountByDateRange = async () => 0;
@@ -564,9 +770,156 @@ test('team weekly analysis report allows admin with explicit teamId', async () =
 
   assert.strictEqual(result.generated, false);
   assert.strictEqual(result.teamId, 'team-1');
+  assert.deepStrictEqual(result.reportMeta, {
+    fromCache: false,
+    generationCount: 0,
+    generationLimit: 2,
+    canRegenerate: false,
+    generatedAt: null
+  });
+});
+
+test('team weekly analysis report returns cached report without calling Groq', async () => {
+  teamRepository.isMember = async () => true;
+  teamWeeklyReportRepository.getByScope = async () => ({
+    id: 'report-1',
+    payload: {
+      weekStart: '2026-02-16',
+      weekEnd: '2026-02-20',
+      teamId: 'team-1',
+      generated: true,
+      overview: { moodBand: 'correcte', averageMood: 6.4, participationRate: 80, trend: 'stable', trendStrength: 'faible' },
+      strengths: [{ rank: 1, title: 'S1', weight: 30, description: 'd1' }],
+      weaknesses: [{ rank: 1, title: 'W1', weight: 30, description: 'd1' }],
+      recommendedActions: [{ id: 'reduce-workload', title: 'A', priority: 'Critique', estimatedImpact: '+35%', summary: 's', checklist: ['a'] }],
+      teamActivities: [{ id: 'solution-retro', title: 'T', estimatedImpact: '+15%', objective: 'o', format: 'f', bullets: ['a'], benefit: 'b' }]
+    },
+    generationCount: 1,
+    generatedAt: '2026-02-21T09:30:00.000Z'
+  });
+  groqClient.generateTeamWeeklyAnalysisReport = async () => {
+    throw new Error('should not be called');
+  };
+
+  const result = await teamService.getWeeklyAnalysisReport({
+    userId: 'manager-1',
+    userRole: 'manager',
+    queryTeamId: 'team-1',
+    weekStart: '2026-02-16'
+  });
+
+  assert.strictEqual(result.reportMeta.fromCache, true);
+  assert.strictEqual(result.reportMeta.generationCount, 1);
+  assert.strictEqual(result.reportMeta.canRegenerate, true);
+  assert.strictEqual(result.overview.averageMood, 6.4);
+});
+
+test('team weekly analysis report regenerates with forceRegenerate when quota remains', async () => {
+  const client = createMockClient();
+  dbPool.connect = async () => client;
+  teamRepository.isMember = async () => true;
+  teamRepository.getMemberIdsByTeam = async () => [{ user_id: 'u1' }, { user_id: 'u2' }];
+  teamRepository.getActiveMemberCountByDateRange = async () => 2;
+  teamRepository.getByDateRange = async () => [{ date: '2026-02-16', moodValue: 74 }];
+  teamRepository.getByDateRangeWithCauses = async () => [
+    { date: '2026-02-16', userId: 'u1', moodValue: 74, causes: '["WORKLOAD"]' }
+  ];
+  feedbackRepository.getWeeklyCategoryCountsByTeam = async () => [];
+  teamWeeklyReportRepository.getByScope = async () => ({
+    id: 'report-1',
+    payload: {},
+    generationCount: 1,
+    generatedAt: '2026-02-20T10:00:00.000Z'
+  });
+  teamWeeklyReportRepository.getByScopeForUpdate = async () => ({
+    id: 'report-1',
+    payload: {},
+    generationCount: 1,
+    generatedAt: '2026-02-20T10:00:00.000Z'
+  });
+  let updatePayload = null;
+  teamWeeklyReportRepository.updateReport = async (payload) => {
+    updatePayload = payload;
+  };
+  groqClient.generateTeamWeeklyAnalysisReport = async () => ({
+    strengths: [
+      { rank: 1, title: 'S1', weight: 40, description: 'd1' },
+      { rank: 2, title: 'S2', weight: 35, description: 'd2' },
+      { rank: 3, title: 'S3', weight: 25, description: 'd3' }
+    ],
+    weaknesses: [
+      { rank: 1, title: 'W1', weight: 30, description: 'd1' },
+      { rank: 2, title: 'W2', weight: 25, description: 'd2' },
+      { rank: 3, title: 'W3', weight: 20, description: 'd3' },
+      { rank: 4, title: 'W4', weight: 15, description: 'd4' },
+      { rank: 5, title: 'W5', weight: 10, description: 'd5' }
+    ],
+    recommendedActions: [
+      { id: 'reduce-workload', summary: 'a1' },
+      { id: 'restore-clarity', summary: 'a2' },
+      { id: 'protect-balance', summary: 'a3' },
+      { id: 'prevent-burnout', summary: 'a4' }
+    ],
+    teamActivities: [
+      { id: 'solution-retro', summary: 't1' },
+      { id: 'recognition-icebreaker', summary: 't2' },
+      { id: 'low-pressure-offsite', summary: 't3' }
+    ]
+  });
+
+  const result = await teamService.getWeeklyAnalysisReport({
+    userId: 'manager-1',
+    userRole: 'manager',
+    queryTeamId: 'team-1',
+    weekStart: '2026-02-16',
+    forceRegenerate: true
+  });
+
+  assert.strictEqual(result.reportMeta.fromCache, false);
+  assert.strictEqual(result.reportMeta.generationCount, 2);
+  assert.strictEqual(result.reportMeta.canRegenerate, false);
+  assert.strictEqual(updatePayload.generationCount, 2);
+  assert.ok(client.queries.includes('BEGIN'));
+  assert.ok(client.queries.includes('COMMIT'));
+});
+
+test('team weekly analysis report returns stored report when generation quota is exhausted', async () => {
+  teamRepository.isMember = async () => true;
+  teamWeeklyReportRepository.getByScope = async () => ({
+    id: 'report-1',
+    payload: {
+      weekStart: '2026-02-16',
+      weekEnd: '2026-02-20',
+      teamId: 'team-1',
+      generated: true,
+      overview: { moodBand: 'correcte', averageMood: 6.4, participationRate: 80, trend: 'stable', trendStrength: 'faible' },
+      strengths: [],
+      weaknesses: [],
+      recommendedActions: [],
+      teamActivities: []
+    },
+    generationCount: 2,
+    generatedAt: '2026-02-21T09:30:00.000Z'
+  });
+  groqClient.generateTeamWeeklyAnalysisReport = async () => {
+    throw new Error('should not be called');
+  };
+
+  const result = await teamService.getWeeklyAnalysisReport({
+    userId: 'manager-1',
+    userRole: 'manager',
+    queryTeamId: 'team-1',
+    weekStart: '2026-02-16',
+    forceRegenerate: true
+  });
+
+  assert.strictEqual(result.reportMeta.fromCache, true);
+  assert.strictEqual(result.reportMeta.generationCount, 2);
+  assert.strictEqual(result.reportMeta.canRegenerate, false);
 });
 
 test('team weekly analysis report maps Groq failures to AI_GENERATION_FAILED', async () => {
+  const client = mockEmptyWeeklyReportCache();
   teamRepository.isMember = async () => true;
   teamRepository.getMemberIdsByTeam = async () => [{ user_id: 'u1' }];
   teamRepository.getActiveMemberCountByDateRange = async () => 1;
@@ -575,6 +928,14 @@ test('team weekly analysis report maps Groq failures to AI_GENERATION_FAILED', a
     { date: '2026-02-16', userId: 'u1', moodValue: 74, causes: '["WORKLOAD"]' }
   ];
   feedbackRepository.getWeeklyCategoryCountsByTeam = async () => [];
+  let createCalled = false;
+  let updateCalled = false;
+  teamWeeklyReportRepository.createReport = async () => {
+    createCalled = true;
+  };
+  teamWeeklyReportRepository.updateReport = async () => {
+    updateCalled = true;
+  };
   groqClient.generateTeamWeeklyAnalysisReport = async () => {
     throw new AppError('Groq returned invalid JSON', 502, 'AI_GENERATION_FAILED');
   };
@@ -582,15 +943,19 @@ test('team weekly analysis report maps Groq failures to AI_GENERATION_FAILED', a
   await assert.rejects(
     teamService.getWeeklyAnalysisReport({
       userId: 'manager-1',
-      userRole: 'manager',
-      queryTeamId: 'team-1',
-      weekStart: '2026-02-16'
+    userRole: 'manager',
+    queryTeamId: 'team-1',
+    weekStart: '2026-02-16'
     }),
     (err) => err instanceof AppError && err.status === 502 && err.code === 'AI_GENERATION_FAILED'
   );
+  assert.strictEqual(createCalled, false);
+  assert.strictEqual(updateCalled, false);
+  assert.ok(client.queries.includes('ROLLBACK'));
 });
 
 test('team weekly analysis report falls back when Groq report schema is invalid', async () => {
+  mockEmptyWeeklyReportCache();
   teamRepository.isMember = async () => true;
   teamRepository.getMemberIdsByTeam = async () => [{ user_id: 'u1' }, { user_id: 'u2' }];
   teamRepository.getActiveMemberCountByDateRange = async () => 2;
@@ -624,10 +989,12 @@ test('team weekly analysis report falls back when Groq report schema is invalid'
   assert.strictEqual(result.weaknesses.length, 5);
   assert.strictEqual(result.recommendedActions.length, 4);
   assert.strictEqual(result.teamActivities.length, 3);
+  assert.strictEqual(result.reportMeta.fromCache, false);
   assert.ok(result.weaknesses.some((item) => item.title === 'Charge de travail excessive ou mal priorisée'));
 });
 
 test('team weekly analysis report deduplicates repeated Groq catalog ids before filling fallback items', async () => {
+  mockEmptyWeeklyReportCache();
   teamRepository.isMember = async () => true;
   teamRepository.getMemberIdsByTeam = async () => [{ user_id: 'u1' }, { user_id: 'u2' }];
   teamRepository.getActiveMemberCountByDateRange = async () => 2;

@@ -1,8 +1,10 @@
 const { v4: uuidv4 } = require('uuid');
 const { z } = require('zod');
 const teamRepository = require('../repositories/teamRepository');
+const dbPool = require('../db/index');
 const userRepository = require('../repositories/userRepository');
 const feedbackRepository = require('../repositories/feedbackRepository');
+const teamWeeklyReportRepository = require('../repositories/teamWeeklyReportRepository');
 const { AppError } = require('../utils/errors');
 const groqClient = require('./groqClient');
 const { actionCatalog, activityCatalog } = require('./teamAnalysisCatalog');
@@ -46,6 +48,8 @@ const FEEDBACK_CATEGORY_LABELS = {
   WORK_LIFE_BALANCE: 'équilibre vie pro / vie perso',
   FACILITIES: 'environnement de travail'
 };
+
+const WEEKLY_REPORT_GENERATION_LIMIT = 2;
 
 const positiveCauseMap = {
   RELATIONS: 'Bonne ambiance et relations d’équipe',
@@ -242,6 +246,95 @@ const getDailyTrendSummary = (daily) => {
       moodValue: maxEntry.moodValue
     },
     summary: summaryParts.join(' ')
+  };
+};
+
+const getDeltaValue = (currentValue, previousValue) => {
+  if (currentValue === null || currentValue === undefined) return null;
+  if (previousValue === null || previousValue === undefined) return null;
+  return roundToOneDecimal(currentValue - previousValue);
+};
+
+const getWeekParticipationRate = ({ participation, period }) => {
+  if (period !== 'week') return null;
+  return Math.round((participation * 100) / 5);
+};
+
+const getQvtBarometerValue = ({ averageMood, participationRate, trend }) => {
+  if (averageMood === null || averageMood === undefined) return null;
+
+  let score = averageMood * 0.75;
+  if (participationRate !== null && participationRate !== undefined) {
+    score += (participationRate / 100) * 2;
+  }
+
+  if (trend === 'hausse') score += 0.5;
+  else if (trend === 'baisse') score -= 0.5;
+
+  return roundToOneDecimal(Math.max(0, Math.min(10, score)));
+};
+
+const buildWeeklyDashboard = ({ current, previous }) => ({
+  averageMood: {
+    value: current.averageMood,
+    deltaVsPreviousWeek: previous.hasData ? getDeltaValue(current.averageMood, previous.averageMood) : null
+  },
+  participation: {
+    value: current.participationRate,
+    deltaVsPreviousWeek: previous.hasData ? getDeltaValue(current.participationRate, previous.participationRate) : null
+  },
+  qvtBarometer: {
+    value: current.qvtBarometerValue,
+    deltaVsPreviousWeek: previous.hasData ? getDeltaValue(current.qvtBarometerValue, previous.qvtBarometerValue) : null,
+    label: 'Indice annuel évolutif'
+  }
+});
+
+const buildWeeklySummarySnapshot = ({ start, end, period, dailyRows, rawRows }) => {
+  const moodByDate = {};
+  dailyRows.forEach((row) => {
+    if (row.moodValue !== null && row.moodValue !== undefined) {
+      moodByDate[row.date] = Number(row.moodValue.toFixed(1));
+    }
+  });
+
+  let moodTotal = 0;
+  let moodCount = 0;
+  rawRows.forEach((row) => {
+    if (row.moodValue !== null && row.moodValue !== undefined) {
+      moodTotal += row.moodValue;
+      moodCount += 1;
+    }
+  });
+
+  const stats = createWeeklyStats();
+  const dailyResult = buildPeriodDaily({ period, start, end, moodByDate, stats });
+  const averageMood = moodCount ? Number((moodTotal / moodCount / 10).toFixed(1)) : null;
+  const publicDaily = dailyResult.daily.map((entry) => ({
+    date: entry.date,
+    moodValue: entry.moodValue === null || entry.moodValue === undefined ? null : Number((entry.moodValue / 10).toFixed(1)),
+    label: entry.label
+  }));
+  const trendSummary = getDailyTrendSummary(publicDaily);
+  const participationRate = getWeekParticipationRate({ participation: dailyResult.participation, period });
+  const qvtBarometerValue = getQvtBarometerValue({
+    averageMood,
+    participationRate,
+    trend: trendSummary.trend
+  });
+
+  return {
+    participation: dailyResult.participation,
+    averageMood,
+    daily: dailyResult.daily,
+    stats,
+    hasData: rawRows.length > 0,
+    dashboardMetrics: {
+      averageMood,
+      participationRate,
+      qvtBarometerValue,
+      hasData: rawRows.length > 0
+    }
   };
 };
 
@@ -825,6 +918,31 @@ const buildEmptyAnalysisReport = ({ weekStart, weekEnd, teamId }) => ({
   teamActivities: []
 });
 
+const attachAnalysisReportMeta = ({ payload, fromCache, generationCount, generatedAt, canRegenerate }) => ({
+  ...payload,
+  reportMeta: {
+    fromCache,
+    generationCount,
+    generationLimit: WEEKLY_REPORT_GENERATION_LIMIT,
+    canRegenerate: typeof canRegenerate === 'boolean'
+      ? canRegenerate
+      : generationCount < WEEKLY_REPORT_GENERATION_LIMIT,
+    generatedAt: generatedAt || null
+  }
+});
+
+const serializeAnalysisReportPayload = (payload) => ({
+  weekStart: payload.weekStart,
+  weekEnd: payload.weekEnd,
+  teamId: payload.teamId,
+  generated: payload.generated,
+  overview: payload.overview,
+  strengths: payload.strengths,
+  weaknesses: payload.weaknesses,
+  recommendedActions: payload.recommendedActions,
+  teamActivities: payload.teamActivities
+});
+
 const getTeamStats = async ({ userId, queryTeamId }) => {
   const today = new Date().toISOString().split('T')[0];
 
@@ -918,33 +1036,53 @@ const getWeeklySummary = async ({ userId, queryTeamId, weekStart, period = 'week
     ]);
   }
 
-  const moodByDate = {};
-  dailyRows.forEach((row) => {
-    if (row.moodValue !== null && row.moodValue !== undefined) {
-      moodByDate[row.date] = Number(row.moodValue.toFixed(1));
-    }
+  const summary = buildWeeklySummarySnapshot({
+    start,
+    end,
+    period,
+    dailyRows,
+    rawRows
   });
 
-  let moodTotal = 0;
-  let moodCount = 0;
-  rawRows.forEach((row) => {
-    if (row.moodValue !== null && row.moodValue !== undefined) {
-      moodTotal += row.moodValue;
-      moodCount += 1;
-    }
-  });
+  let dashboard;
+  if (period === 'week') {
+    const previousStart = new Date(start);
+    previousStart.setUTCDate(previousStart.getUTCDate() - 7);
+    const previousEnd = new Date(end);
+    previousEnd.setUTCDate(previousEnd.getUTCDate() - 7);
 
-  const stats = createWeeklyStats();
-  const dailyResult = buildPeriodDaily({ period, start, end, moodByDate, stats });
+    let previousDailyRows = [];
+    let previousRawRows = [];
+    if (teamId) {
+      [previousDailyRows, previousRawRows] = await Promise.all([
+        teamRepository.getByDateRange(teamId, toDateOnly(previousStart), toDateOnly(previousEnd)),
+        teamRepository.getByDateRangeWithCauses(teamId, toDateOnly(previousStart), toDateOnly(previousEnd))
+      ]);
+    }
+
+    const previousSummary = buildWeeklySummarySnapshot({
+      start: previousStart,
+      end: previousEnd,
+      period,
+      dailyRows: previousDailyRows,
+      rawRows: previousRawRows
+    });
+
+    dashboard = buildWeeklyDashboard({
+      current: summary.dashboardMetrics,
+      previous: previousSummary.dashboardMetrics
+    });
+  }
 
   return {
     weekStart: rangeStartStr,
     weekEnd: rangeEndStr,
     period,
-    participation: dailyResult.participation,
-    averageMood: moodCount ? Number((moodTotal / moodCount / 10).toFixed(1)) : null,
-    daily: dailyResult.daily,
-    stats
+    participation: summary.participation,
+    averageMood: summary.averageMood,
+    daily: summary.daily,
+    stats: summary.stats,
+    ...(dashboard ? { dashboard } : {})
   };
 };
 
@@ -1113,7 +1251,7 @@ const getWeeklyInsight = async ({ userId, queryTeamId, weekStart }) => {
   };
 };
 
-const getWeeklyAnalysisReport = async ({ userId, userRole, queryTeamId, weekStart }) => {
+const getWeeklyAnalysisReport = async ({ userId, userRole, queryTeamId, weekStart, forceRegenerate = false }) => {
   assertValidWeekStart(weekStart);
   const period = 'week';
   const { start, end } = getPeriodRange({ period, weekStart });
@@ -1122,7 +1260,36 @@ const getWeeklyAnalysisReport = async ({ userId, userRole, queryTeamId, weekStar
   const teamId = await resolveTeamIdForAnalysisReport({ userId, userRole, queryTeamId });
 
   if (!teamId) {
-    return buildEmptyAnalysisReport({ weekStart: rangeStartStr, weekEnd: rangeEndStr, teamId: null });
+    return attachAnalysisReportMeta({
+      payload: buildEmptyAnalysisReport({ weekStart: rangeStartStr, weekEnd: rangeEndStr, teamId: null }),
+      fromCache: false,
+      generationCount: 0,
+      generatedAt: null,
+      canRegenerate: false
+    });
+  }
+
+  const existingReport = await teamWeeklyReportRepository.getByScope({
+    teamId,
+    weekStart: rangeStartStr
+  });
+
+  if (existingReport && !forceRegenerate) {
+    return attachAnalysisReportMeta({
+      payload: existingReport.payload,
+      fromCache: true,
+      generationCount: existingReport.generationCount,
+      generatedAt: existingReport.generatedAt
+    });
+  }
+
+  if (existingReport && existingReport.generationCount >= WEEKLY_REPORT_GENERATION_LIMIT) {
+    return attachAnalysisReportMeta({
+      payload: existingReport.payload,
+      fromCache: true,
+      generationCount: existingReport.generationCount,
+      generatedAt: existingReport.generatedAt
+    });
   }
 
   const [memberRows, activeMemberCount, dailyRows, rawRows, feedbackCategoryRows] = await Promise.all([
@@ -1134,7 +1301,13 @@ const getWeeklyAnalysisReport = async ({ userId, userRole, queryTeamId, weekStar
   ]);
 
   if (rawRows.length === 0) {
-    return buildEmptyAnalysisReport({ weekStart: rangeStartStr, weekEnd: rangeEndStr, teamId });
+    return attachAnalysisReportMeta({
+      payload: buildEmptyAnalysisReport({ weekStart: rangeStartStr, weekEnd: rangeEndStr, teamId }),
+      fromCache: false,
+      generationCount: 0,
+      generatedAt: null,
+      canRegenerate: false
+    });
   }
 
   const feedbackCategories = {};
@@ -1204,33 +1377,119 @@ const getWeeklyAnalysisReport = async ({ userId, userRole, queryTeamId, weekStar
     trendSummary
   });
 
-  const llmReport = await groqClient.generateTeamWeeklyAnalysisReport({
-    context: analysisContext,
-    actionCatalog,
-    activityCatalog
-  });
-  const normalized = normalizeAnalysisReport({ llmReport, context: analysisContext });
+  const client = await dbPool.connect();
+  try {
+    await client.query('BEGIN');
 
-  return {
-    weekStart: rangeStartStr,
-    weekEnd: rangeEndStr,
-    teamId,
-    generated: true,
-    overview: {
-      moodBand: analysisContext.moodBand,
-      averageMood: metrics.averageMood,
-      participationRate: metrics.participationRate,
-      trend: analysisContext.trend,
-      trendStrength: analysisContext.trendStrength
-    },
-    strengths: normalized.strengths,
-    weaknesses: normalized.weaknesses,
-    recommendedActions: normalized.recommendedActions,
-    teamActivities: normalized.teamActivities
+    const lockedReport = await teamWeeklyReportRepository.getByScopeForUpdate({
+      teamId,
+      weekStart: rangeStartStr,
+      client
+    });
+
+    if (lockedReport && !forceRegenerate) {
+      await client.query('COMMIT');
+      return attachAnalysisReportMeta({
+        payload: lockedReport.payload,
+        fromCache: true,
+        generationCount: lockedReport.generationCount,
+        generatedAt: lockedReport.generatedAt
+      });
+    }
+
+    if (lockedReport && lockedReport.generationCount >= WEEKLY_REPORT_GENERATION_LIMIT) {
+      await client.query('COMMIT');
+      return attachAnalysisReportMeta({
+        payload: lockedReport.payload,
+        fromCache: true,
+        generationCount: lockedReport.generationCount,
+        generatedAt: lockedReport.generatedAt
+      });
+    }
+
+    const llmReport = await groqClient.generateTeamWeeklyAnalysisReport({
+      context: analysisContext,
+      actionCatalog,
+      activityCatalog
+    });
+    const normalized = normalizeAnalysisReport({ llmReport, context: analysisContext });
+    const payload = {
+      weekStart: rangeStartStr,
+      weekEnd: rangeEndStr,
+      teamId,
+      generated: true,
+      overview: {
+        moodBand: analysisContext.moodBand,
+        averageMood: metrics.averageMood,
+        participationRate: metrics.participationRate,
+        trend: analysisContext.trend,
+        trendStrength: analysisContext.trendStrength
+      },
+      strengths: normalized.strengths,
+      weaknesses: normalized.weaknesses,
+      recommendedActions: normalized.recommendedActions,
+      teamActivities: normalized.teamActivities
+    };
+
+    const generatedAt = new Date().toISOString();
+
+    if (!lockedReport) {
+      await teamWeeklyReportRepository.createReport({
+        id: uuidv4(),
+        teamId,
+        weekStart: rangeStartStr,
+        weekEnd: rangeEndStr,
+        payload: serializeAnalysisReportPayload(payload),
+        generationCount: 1,
+        generatedAt,
+        createdByUserId: userId,
+        updatedByUserId: userId,
+        client
+      });
+      await client.query('COMMIT');
+      return attachAnalysisReportMeta({
+        payload,
+        fromCache: false,
+        generationCount: 1,
+        generatedAt
+      });
+    }
+
+    const nextGenerationCount = lockedReport.generationCount + 1;
+    await teamWeeklyReportRepository.updateReport({
+      reportId: lockedReport.id,
+      weekEnd: rangeEndStr,
+      payload: serializeAnalysisReportPayload(payload),
+      generationCount: nextGenerationCount,
+      generatedAt,
+      updatedByUserId: userId,
+      client
+    });
+    await client.query('COMMIT');
+
+    return attachAnalysisReportMeta({
+      payload,
+      fromCache: false,
+      generationCount: nextGenerationCount,
+      generatedAt
+    });
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('Erreur lors du rollback report cache:', rollbackErr.message);
+    }
+    throw err;
+  } finally {
+    client.release();
   };
 };
 
-const createTeam = async ({ name, organizationId, userOrganizationId }) => {
+const createTeam = async ({ name, organizationId, userOrganizationId, userRole }) => {
+  if (!['manager', 'admin'].includes(userRole)) {
+    throw new AppError('Forbidden: manager or admin role required', 403, 'FORBIDDEN');
+  }
+
   if (!name) {
     throw new AppError('name is required', 400, 'VALIDATION_ERROR');
   }
@@ -1250,7 +1509,11 @@ const createTeam = async ({ name, organizationId, userOrganizationId }) => {
   };
 };
 
-const addMember = async ({ teamId, userId }) => {
+const addMember = async ({ teamId, userId, userRole }) => {
+  if (!['manager', 'admin'].includes(userRole)) {
+    throw new AppError('Forbidden: manager or admin role required', 403, 'FORBIDDEN');
+  }
+
   if (!teamId) {
     throw new AppError('teamId is required', 400, 'VALIDATION_ERROR');
   }

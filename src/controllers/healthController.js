@@ -7,7 +7,7 @@
  * @returns {void}
  *
  */
-const getHealth = (res) => {
+const getHealth = (req, res) => {
   res.status(200).json({
     status: 'success',
     message: 'Server is healthy',

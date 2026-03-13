@@ -36,8 +36,21 @@ const getUserInfo = async (req, res, next) => {
   }
 };
 
+const getWeeklyInsight = async (req, res, next) => {
+  try {
+    const result = await userService.getWeeklyInsight({
+      userId: req.user.id,
+      weekStart: req.query.weekStart
+    });
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   updateUserInfo,
   completeOnboarding,
   getUserInfo,
+  getWeeklyInsight
 };

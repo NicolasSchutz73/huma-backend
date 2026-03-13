@@ -92,7 +92,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"email\":\"{{manager_email}}\",\"password\":\"{{seed_password}}\"}",
+              "raw": "{\"email\":\"{{manager_email}}\",\"password\":\"{{manager_password}}\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -144,7 +144,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"email\":\"{{admin_email}}\",\"password\":\"{{seed_password}}\"}",
+              "raw": "{\"email\":\"{{admin_email}}\",\"password\":\"{{admin_password}}\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -196,7 +196,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"email\":\"{{employee_email}}\",\"password\":\"{{seed_password}}\"}",
+              "raw": "{\"email\":\"{{employee_email}}\",\"password\":\"{{employee_password}}\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -244,7 +244,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{healthy_manager_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{healthy_manager_email}}\",\n  \"password\": \"{{manager_password}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -293,7 +293,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{struggling_manager_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{struggling_manager_email}}\",\n  \"password\": \"{{manager_password}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -342,7 +342,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{healthy_employee_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{healthy_employee_email}}\",\n  \"password\": \"{{employee_password}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -391,7 +391,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{struggling_employee_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "raw": "{\n  \"email\": \"{{struggling_employee_email}}\",\n  \"password\": \"{{employee_password}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -409,6 +409,35 @@
               ]
             },
             "description": "Connexion seed pour login (employee struggling demo). Met aussi à jour auth_token."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "admin",
+      "item": [
+        {
+          "name": "Run development seed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/seed",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "seed"
+              ]
+            },
+            "description": "Disponible uniquement en development. Faire d'abord `login (admin seed)`."
           },
           "response": []
         }
@@ -437,6 +466,37 @@
                 "me"
               ]
             }
+          },
+          "response": []
+        },
+        {
+          "name": "Get my weekly insight (AI)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/weekly-insight?weekStart={{user_week_start}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "weekly-insight"
+              ],
+              "query": [
+                {
+                  "key": "weekStart",
+                  "value": "{{user_week_start}}"
+                }
+              ]
+            },
+            "description": "Génère la synthèse IA hebdomadaire personnelle pour l'utilisateur connecté. Pré-requis conseillé: exécuter un login seed employee, manager ou admin pour charger `auth_token`."
           },
           "response": []
         },
@@ -823,6 +883,22 @@
       "item": [
         {
           "name": "Create a feedback",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(201);",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.feedback && jsonData.feedback.id) {",
+                  "  pm.collectionVariables.set(\"current_feedback_id\", jsonData.feedback.id);",
+                  "  console.log(\"Feedback ID sauvegardé : \" + jsonData.feedback.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -857,7 +933,7 @@
           "response": []
         },
         {
-          "name": "Get feedbacks history",
+          "name": "Get all feedbacks",
           "request": {
             "method": "GET",
             "header": [
@@ -877,6 +953,67 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Get my feedbacks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/feedbacks/mine",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedbacks",
+                "mine"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update feedback status (manager/admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{manager_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"vu\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/feedbacks/{{current_feedback_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedbacks",
+                "{{current_feedback_id}}",
+                "status"
+              ]
+            },
+            "description": "Utilise `manager_token` et l'id stocke par `Create a feedback`."
+          },
+          "response": []
         }
       ]
     },
@@ -890,6 +1027,9 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
                   "var jsonData = pm.response.json();",
                   "if (jsonData.team && jsonData.team.id) {",
                   "  pm.collectionVariables.set(\"current_team_id\", jsonData.team.id);",
@@ -929,12 +1069,26 @@
               "path": [
                 "team"
               ]
-            }
+            },
+            "description": "Réservé aux rôles manager/admin. Pré-requis recommandé: exécuter `login (manager seed)` ou `login (admin seed)`."
           },
           "response": []
         },
         {
           "name": "Add team member",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -965,7 +1119,115 @@
                 "team",
                 "members"
               ]
+            },
+            "description": "Réservé aux rôles manager/admin. Utilise `current_team_id` et `current_user_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "Create team forbidden (employee)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Returns FORBIDDEN code\", function () {",
+                  "  pm.expect(jsonData.error.code).to.eql(\"FORBIDDEN\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
             }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{employee_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Forbidden Employee Team\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/team",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team"
+              ]
+            },
+            "description": "Vérifie qu'un salarié ne peut pas créer d'équipe. Pré-requis: exécuter `login (employee seed)`."
+          },
+          "response": []
+        },
+        {
+          "name": "Add team member forbidden (employee)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Returns FORBIDDEN code\", function () {",
+                  "  pm.expect(jsonData.error.code).to.eql(\"FORBIDDEN\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{employee_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teamId\": \"{{current_team_id}}\",\n  \"userId\": \"{{current_user_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/team/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "members"
+              ]
+            },
+            "description": "Vérifie qu'un salarié ne peut pas ajouter de membre. Pré-requis: `current_team_id` renseigné et `employee_token` chargé."
           },
           "response": []
         },
@@ -1153,10 +1415,101 @@
                   "key": "teamId",
                   "value": "{{current_team_id}}",
                   "disabled": true
+                },
+                {
+                  "key": "forceRegenerate",
+                  "value": "false",
+                  "disabled": true
                 }
               ]
             },
-            "description": "Rapport d'analyse hebdomadaire réservé aux managers et admins. En mode manager, `teamId` peut rester désactivé pour utiliser l'équipe du membre connecté."
+            "description": "Rapport d'analyse hebdomadaire réservé aux managers et admins. En mode manager, `teamId` peut rester désactivé pour utiliser l'équipe du membre connecté. Sans `forceRegenerate`, le backend renvoie le rapport déjà stocké si disponible."
+          },
+          "response": []
+        },
+        {
+          "name": "Force regenerate weekly analysis report (manager)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-analysis-report?weekStart={{team_week_start}}&forceRegenerate=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-analysis-report"
+              ],
+              "query": [
+                {
+                  "key": "weekStart",
+                  "value": "{{team_week_start}}"
+                },
+                {
+                  "key": "forceRegenerate",
+                  "value": "true"
+                },
+                {
+                  "key": "teamId",
+                  "value": "{{current_team_id}}",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Force une régénération si le quota hebdomadaire n'est pas épuisé. Utilise `reportMeta.canRegenerate` et `reportMeta.generationCount` dans la réponse pour savoir si une nouvelle génération reste possible."
+          },
+          "response": []
+        },
+        {
+          "name": "Get weekly analysis report forbidden (employee)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Returns FORBIDDEN code\", function () {",
+                  "  pm.expect(jsonData.error.code).to.eql(\"FORBIDDEN\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{employee_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/team/weekly-analysis-report?weekStart={{team_week_start}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "team",
+                "weekly-analysis-report"
+              ],
+              "query": [
+                {
+                  "key": "weekStart",
+                  "value": "{{team_week_start}}"
+                }
+              ]
+            },
+            "description": "Vérifie qu'un salarié ne peut pas accéder au rapport manager. Pré-requis: exécuter `login (employee seed)`."
           },
           "response": []
         },
@@ -1187,10 +1540,15 @@
                 {
                   "key": "teamId",
                   "value": "{{current_team_id}}"
+                },
+                {
+                  "key": "forceRegenerate",
+                  "value": "false",
+                  "disabled": true
                 }
               ]
             },
-            "description": "Rapport d'analyse hebdomadaire côté admin. Pré-requis: avoir exécuté une requête qui renseigne `current_team_id`, car `teamId` est obligatoire pour les admins."
+            "description": "Rapport d'analyse hebdomadaire côté admin. Pré-requis: avoir exécuté une requête qui renseigne `current_team_id`, car `teamId` est obligatoire pour les admins. Sans `forceRegenerate`, le backend renvoie le rapport stocké si disponible."
           },
           "response": []
         },
@@ -1701,6 +2059,11 @@
       "type": "default"
     },
     {
+      "key": "user_week_start",
+      "value": "2026-02-16",
+      "type": "default"
+    },
+    {
       "key": "seed_password",
       "value": "adminadmin",
       "type": "default"
@@ -1732,6 +2095,11 @@
     },
     {
       "key": "employee_token",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "current_feedback_id",
       "value": "",
       "type": "default"
     },

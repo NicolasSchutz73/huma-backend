@@ -112,11 +112,28 @@ const getWeeklyCategoryCountsByTeam = async (teamId, startDate, endDate) => {
   return rows;
 };
 
+const getWeeklyCategoryCountsByUser = async (userId, startDate, endDate) => {
+  const sql = `
+    SELECT category, COUNT(*)::int as count
+    FROM feedbacks
+    WHERE user_id = $1
+      AND DATE(created_at AT TIME ZONE 'UTC') BETWEEN $2::date AND $3::date
+    GROUP BY category
+    ORDER BY COUNT(*) DESC, category ASC
+  `;
+  const rows = await db.all(sql, [userId, startDate, endDate]);
+  rows.forEach((row) => {
+    validateRow(Feedback.pick({ category: true }), row);
+  });
+  return rows;
+};
+
 module.exports = {
   getById,
   listAll,
   listByUserId,
   createFeedback,
   updateStatus,
-  getWeeklyCategoryCountsByTeam
+  getWeeklyCategoryCountsByTeam,
+  getWeeklyCategoryCountsByUser
 };

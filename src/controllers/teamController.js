@@ -62,7 +62,8 @@ const getWeeklyAnalysisReport = async (req, res, next) => {
       userId: req.user.id,
       userRole: req.user.role,
       queryTeamId: req.query.teamId,
-      weekStart: req.query.weekStart
+      weekStart: req.query.weekStart,
+      forceRegenerate: req.query.forceRegenerate
     });
     res.status(200).json(result);
   } catch (err) {
@@ -75,7 +76,8 @@ const createTeam = async (req, res, next) => {
     const result = await teamService.createTeam({
       name: req.body.name,
       organizationId: req.body.organizationId,
-      userOrganizationId: req.user.organization_id
+      userOrganizationId: req.user.organization_id,
+      userRole: req.user.role
     });
     res.status(201).json(result);
   } catch (err) {
@@ -87,7 +89,8 @@ const addMember = async (req, res, next) => {
   try {
     const result = await teamService.addMember({
       teamId: req.body.teamId,
-      userId: req.body.userId
+      userId: req.body.userId,
+      userRole: req.user.role
     });
     res.status(201).json(result);
   } catch (err) {
