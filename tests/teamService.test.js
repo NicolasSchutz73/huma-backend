@@ -361,6 +361,15 @@ test('team weekly insight rejects with FORBIDDEN when user is not a team member'
 
 test('team weekly insight aggregates metrics and calls Groq with anonymized feedback categories', async () => {
   let groqPayload = null;
+  let createdReport = null;
+
+  const client = createMockClient();
+  dbPool.connect = async () => client;
+  teamWeeklyReportRepository.getByScope = async () => null;
+  teamWeeklyReportRepository.getByScopeForUpdate = async () => null;
+  teamWeeklyReportRepository.createReport = async (payload) => {
+    createdReport = payload;
+  };
 
   teamRepository.isMember = async () => true;
   teamRepository.getMemberIdsByTeam = async () => [
@@ -430,9 +439,16 @@ test('team weekly insight aggregates metrics and calls Groq with anonymized feed
   });
   assert.strictEqual(typeof groqPayload.insightContext.trendSummary, 'string');
   assert.strictEqual(groqPayload.metrics.feedbackText, undefined);
+  assert.ok(createdReport);
+  assert.strictEqual(createdReport.reportType, 'weekly_team_insight');
+  assert.strictEqual(createdReport.generationCount, 1);
+  assert.deepStrictEqual(createdReport.payload, result);
+  assert.ok(client.queries.includes('BEGIN'));
+  assert.ok(client.queries.includes('COMMIT'));
 });
 
 test('team weekly insight returns empty metrics when the week has no data', async () => {
+  teamWeeklyReportRepository.getByScope = async () => null;
   teamRepository.isMember = async () => true;
   teamRepository.getMemberIdsByTeam = async () => [{ user_id: 'u1' }];
   teamRepository.getActiveMemberCountByDateRange = async () => 0;
@@ -453,6 +469,13 @@ test('team weekly insight returns empty metrics when the week has no data', asyn
 });
 
 test('team weekly insight maps Groq failures to AI_GENERATION_FAILED', async () => {
+  const client = createMockClient();
+  dbPool.connect = async () => client;
+  teamWeeklyReportRepository.getByScope = async () => null;
+  teamWeeklyReportRepository.getByScopeForUpdate = async () => null;
+  teamWeeklyReportRepository.createReport = async () => {
+    throw new Error('should not persist on failure');
+  };
   teamRepository.isMember = async () => true;
   teamRepository.getMemberIdsByTeam = async () => [{ user_id: 'u1' }];
   teamRepository.getActiveMemberCountByDateRange = async () => 1;
@@ -473,6 +496,7 @@ test('team weekly insight maps Groq failures to AI_GENERATION_FAILED', async () 
     }),
     (err) => err instanceof AppError && err.status === 502 && err.code === 'AI_GENERATION_FAILED'
   );
+  assert.ok(client.queries.includes('ROLLBACK'));
 });
 
 test('team weekly insight rejects impossible weekStart dates', async () => {
@@ -488,6 +512,38 @@ test('team weekly insight rejects impossible weekStart dates', async () => {
       err.code === 'VALIDATION_ERROR' &&
       err.message === 'weekStart must be in YYYY-MM-DD format'
   );
+});
+
+test('team weekly insight returns cached payload without calling Groq', async () => {
+  teamRepository.isMember = async () => true;
+  teamWeeklyReportRepository.getByScope = async () => ({
+    payload: {
+      weekStart: '2026-02-16',
+      weekEnd: '2026-02-20',
+      teamId: 'team-1',
+      generated: true,
+      summaryText: 'Résumé déjà stocké',
+      metrics: {
+        averageMood: 7.1,
+        participation: 4,
+        participationRate: 80,
+        topCauses: ['WORKLOAD'],
+        feedbackCategories: {},
+        daily: []
+      }
+    }
+  });
+  groqClient.generateTeamWeeklyInsight = async () => {
+    throw new Error('should not call Groq when cache exists');
+  };
+
+  const result = await teamService.getWeeklyInsight({
+    userId: 'user-1',
+    queryTeamId: 'team-1',
+    weekStart: '2026-02-16'
+  });
+
+  assert.strictEqual(result.summaryText, 'Résumé déjà stocké');
 });
 
 test('team weekly analysis report rejects employee role', async () => {

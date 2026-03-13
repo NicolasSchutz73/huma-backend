@@ -50,6 +50,7 @@ const FEEDBACK_CATEGORY_LABELS = {
 };
 
 const WEEKLY_REPORT_GENERATION_LIMIT = 2;
+const REPORT_TYPE_WEEKLY_TEAM_INSIGHT = teamWeeklyReportRepository.REPORT_TYPE_WEEKLY_TEAM_INSIGHT;
 
 const positiveCauseMap = {
   RELATIONS: 'Bonne ambiance et relations d’équipe',
@@ -943,6 +944,15 @@ const serializeAnalysisReportPayload = (payload) => ({
   teamActivities: payload.teamActivities
 });
 
+const serializeTeamInsightPayload = (payload) => ({
+  weekStart: payload.weekStart,
+  weekEnd: payload.weekEnd,
+  teamId: payload.teamId,
+  generated: payload.generated,
+  summaryText: payload.summaryText,
+  metrics: payload.metrics
+});
+
 const getTeamStats = async ({ userId, queryTeamId }) => {
   const today = new Date().toISOString().split('T')[0];
 
@@ -1151,6 +1161,16 @@ const getWeeklyInsight = async ({ userId, queryTeamId, weekStart }) => {
     };
   }
 
+  const existingInsight = await teamWeeklyReportRepository.getByScope({
+    teamId,
+    weekStart: rangeStartStr,
+    reportType: REPORT_TYPE_WEEKLY_TEAM_INSIGHT
+  });
+
+  if (existingInsight) {
+    return existingInsight.payload;
+  }
+
   const [memberRows, activeMemberCount, dailyRows, rawRows, feedbackCategoryRows] = await Promise.all([
     teamRepository.getMemberIdsByTeam(teamId),
     teamRepository.getActiveMemberCountByDateRange(teamId, rangeStartStr, rangeEndStr),
@@ -1223,32 +1243,75 @@ const getWeeklyInsight = async ({ userId, queryTeamId, weekStart }) => {
     acc[FEEDBACK_CATEGORY_LABELS[category] || category.toLowerCase()] = count;
     return acc;
   }, {});
-
-  const summaryText = await groqClient.generateTeamWeeklyInsight({
-    weekStart: rangeStartStr,
-    weekEnd: rangeEndStr,
-    metrics,
-    insightContext: {
-      teamSize,
-      moodBand: getMoodBand(metrics.averageMood),
-      topCauseLabels: topCauses.map((cause) => CAUSE_LABELS[cause] || cause.toLowerCase()),
-      feedbackCategoryLabels: feedbackLabels,
-      trend: trendSummary.trend,
-      trendStrength: trendSummary.strength,
-      lowestDay: trendSummary.lowestDay,
-      highestDay: trendSummary.highestDay,
-      trendSummary: trendSummary.summary
-    }
-  });
-
-  return {
+  const insightContext = {
+    teamSize,
+    moodBand: getMoodBand(metrics.averageMood),
+    topCauseLabels: topCauses.map((cause) => CAUSE_LABELS[cause] || cause.toLowerCase()),
+    feedbackCategoryLabels: feedbackLabels,
+    trend: trendSummary.trend,
+    trendStrength: trendSummary.strength,
+    lowestDay: trendSummary.lowestDay,
+    highestDay: trendSummary.highestDay,
+    trendSummary: trendSummary.summary
+  };
+  const payload = {
     weekStart: rangeStartStr,
     weekEnd: rangeEndStr,
     teamId,
     generated: true,
-    summaryText,
+    summaryText: null,
     metrics
   };
+
+  const client = await dbPool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const lockedInsight = await teamWeeklyReportRepository.getByScopeForUpdate({
+      teamId,
+      weekStart: rangeStartStr,
+      reportType: REPORT_TYPE_WEEKLY_TEAM_INSIGHT,
+      client
+    });
+
+    if (lockedInsight) {
+      await client.query('COMMIT');
+      return lockedInsight.payload;
+    }
+
+    payload.summaryText = await groqClient.generateTeamWeeklyInsight({
+      weekStart: rangeStartStr,
+      weekEnd: rangeEndStr,
+      metrics,
+      insightContext
+    });
+
+    await teamWeeklyReportRepository.createReport({
+      id: uuidv4(),
+      teamId,
+      weekStart: rangeStartStr,
+      weekEnd: rangeEndStr,
+      reportType: REPORT_TYPE_WEEKLY_TEAM_INSIGHT,
+      payload: serializeTeamInsightPayload(payload),
+      generationCount: 1,
+      generatedAt: new Date().toISOString(),
+      createdByUserId: userId,
+      updatedByUserId: userId,
+      client
+    });
+
+    await client.query('COMMIT');
+    return payload;
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('Erreur lors du rollback team weekly insight:', rollbackErr.message);
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 };
 
 const getWeeklyAnalysisReport = async ({ userId, userRole, queryTeamId, weekStart, forceRegenerate = false }) => {

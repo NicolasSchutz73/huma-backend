@@ -1,6 +1,9 @@
+const { v4: uuidv4 } = require('uuid');
 const userRepository = require('../repositories/userRepository');
 const checkinRepository = require('../repositories/checkinRepository');
 const feedbackRepository = require('../repositories/feedbackRepository');
+const dbPool = require('../db/index');
+const userWeeklyInsightRepository = require('../repositories/userWeeklyInsightRepository');
 const { AppError } = require('../utils/errors');
 const groqClient = require('./groqClient');
 const {
@@ -121,6 +124,14 @@ const getDailyTrendSummary = (daily) => {
   };
 };
 
+const serializeUserInsightPayload = (payload) => ({
+  weekStart: payload.weekStart,
+  weekEnd: payload.weekEnd,
+  generated: payload.generated,
+  summaryText: payload.summaryText,
+  metrics: payload.metrics
+});
+
 const updateUserInfo = async ({ userId, firstName, lastName }) => {
   if (!firstName || !lastName) {
     throw new AppError('First name and last name are required', 400, 'VALIDATION_ERROR');
@@ -207,6 +218,15 @@ const getWeeklyInsight = async ({ userId, weekStart }) => {
   const rangeStartStr = toDateOnly(start);
   const rangeEndStr = toDateOnly(end);
 
+  const existingInsight = await userWeeklyInsightRepository.getByScope({
+    userId,
+    weekStart: rangeStartStr
+  });
+
+  if (existingInsight) {
+    return existingInsight.payload;
+  }
+
   const [dailyRows, rawRows, feedbackCategoryRows] = await Promise.all([
     checkinRepository.getByDateRange(userId, rangeStartStr, rangeEndStr),
     checkinRepository.getByDateRangeWithCauses(userId, rangeStartStr, rangeEndStr),
@@ -275,30 +295,70 @@ const getWeeklyInsight = async ({ userId, weekStart }) => {
     acc[FEEDBACK_CATEGORY_LABELS[category] || category.toLowerCase()] = count;
     return acc;
   }, {});
-
-  const summaryText = await groqClient.generateUserWeeklyInsight({
-    weekStart: rangeStartStr,
-    weekEnd: rangeEndStr,
-    metrics,
-    insightContext: {
-      moodBand: getMoodBand(metrics.averageMood),
-      topCauseLabels: topCauses.map((cause) => CAUSE_LABELS[cause] || cause.toLowerCase()),
-      feedbackCategoryLabels: feedbackLabels,
-      trend: trendSummary.trend,
-      trendStrength: trendSummary.strength,
-      lowestDay: trendSummary.lowestDay,
-      highestDay: trendSummary.highestDay,
-      trendSummary: trendSummary.summary
-    }
-  });
-
-  return {
+  const insightContext = {
+    moodBand: getMoodBand(metrics.averageMood),
+    topCauseLabels: topCauses.map((cause) => CAUSE_LABELS[cause] || cause.toLowerCase()),
+    feedbackCategoryLabels: feedbackLabels,
+    trend: trendSummary.trend,
+    trendStrength: trendSummary.strength,
+    lowestDay: trendSummary.lowestDay,
+    highestDay: trendSummary.highestDay,
+    trendSummary: trendSummary.summary
+  };
+  const payload = {
     weekStart: rangeStartStr,
     weekEnd: rangeEndStr,
     generated: true,
-    summaryText,
+    summaryText: null,
     metrics
   };
+
+  const client = await dbPool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const lockedInsight = await userWeeklyInsightRepository.getByScopeForUpdate({
+      userId,
+      weekStart: rangeStartStr,
+      client
+    });
+
+    if (lockedInsight) {
+      await client.query('COMMIT');
+      return lockedInsight.payload;
+    }
+
+    payload.summaryText = await groqClient.generateUserWeeklyInsight({
+      weekStart: rangeStartStr,
+      weekEnd: rangeEndStr,
+      metrics,
+      insightContext
+    });
+
+    await userWeeklyInsightRepository.createInsight({
+      id: uuidv4(),
+      userId,
+      weekStart: rangeStartStr,
+      weekEnd: rangeEndStr,
+      payload: serializeUserInsightPayload(payload),
+      generatedAt: new Date().toISOString(),
+      createdByUserId: userId,
+      updatedByUserId: userId,
+      client
+    });
+
+    await client.query('COMMIT');
+    return payload;
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('Erreur lors du rollback user weekly insight:', rollbackErr.message);
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 };
 
 module.exports = {

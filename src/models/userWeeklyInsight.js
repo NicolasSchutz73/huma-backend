@@ -2,14 +2,12 @@ const { z } = require('zod');
 
 const dbDateTime = z.union([z.string(), z.date()]);
 
-const TeamWeeklyReport = z.object({
+const UserWeeklyInsight = z.object({
   id: z.string(),
-  team_id: z.string(),
+  user_id: z.string(),
   week_start: z.string(),
   week_end: z.string(),
-  report_type: z.string(),
   payload_json: z.any(),
-  generation_count: z.number().int(),
   generated_at: dbDateTime.nullable().optional(),
   created_by_user_id: z.string().nullable().optional(),
   updated_by_user_id: z.string().nullable().optional(),
@@ -18,5 +16,5 @@ const TeamWeeklyReport = z.object({
 });
 
 module.exports = {
-  TeamWeeklyReport
+  UserWeeklyInsight
 };

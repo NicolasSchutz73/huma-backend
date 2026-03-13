@@ -3,6 +3,14 @@ const { TeamWeeklyReport } = require('../models/teamWeeklyReport');
 const { AppError } = require('../utils/errors');
 
 const REPORT_TYPE_WEEKLY_ANALYSIS = 'weekly_analysis_report';
+const REPORT_TYPE_WEEKLY_TEAM_INSIGHT = 'weekly_team_insight';
+
+const toIsoString = (value) => {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return value;
+};
 
 const validateRow = (row) => {
   if (!row) return row;
@@ -23,11 +31,11 @@ const mapRow = (row) => {
     reportType: row.report_type,
     payload: typeof row.payload_json === 'string' ? JSON.parse(row.payload_json) : row.payload_json,
     generationCount: row.generation_count,
-    generatedAt: row.generated_at,
+    generatedAt: toIsoString(row.generated_at),
     createdByUserId: row.created_by_user_id,
     updatedByUserId: row.updated_by_user_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at)
   };
 };
 
@@ -124,6 +132,7 @@ const updateReport = async ({
 
 module.exports = {
   REPORT_TYPE_WEEKLY_ANALYSIS,
+  REPORT_TYPE_WEEKLY_TEAM_INSIGHT,
   getByScope,
   getByScopeForUpdate,
   createReport,
