@@ -223,6 +223,9 @@ const buildAnalysisReportPrompt = ({ context, actionCatalog, activityCatalog }) 
     'Respecte strictement les volumes: 3 strengths, 5 weaknesses, 4 recommendedActions, 3 teamActivities.',
     'Chaque weakness doit avoir un poids entier entre 0 et 100. Les weights doivent refléter une hiérarchie crédible.',
     'Les strengths et weaknesses doivent être formulés en français naturel, orientés management, sans jargon technique.',
+    "Ajoute aussi deux champs top-level: strengthsSummary et weaknessesSummary.",
+    "strengthsSummary doit être une seule phrase courte qui résume l'ensemble des points forts et indique comment capitaliser dessus.",
+    "weaknessesSummary doit être une seule phrase courte qui résume l'ensemble des points faibles et formule le risque principal ou la priorité d'action.",
     "Un même thème ne peut pas apparaître à la fois en point fort et en point faible. Si un facteur est un irritant majeur, n'en fais pas un point fort.",
     "Privilégie pour les points forts des signaux observables et robustes: participation, stabilité, climat général, absence d'alerte forte, cohésion si elle n'est pas déjà un irritant.",
     "Le champ analysisMode indique le niveau attendu du rapport: healthy = posture de consolidation, mixed = posture équilibrée, critical = posture de redressement. Calibre le ton et les actions en conséquence.",
@@ -236,6 +239,8 @@ const buildAnalysisReportPrompt = ({ context, actionCatalog, activityCatalog }) 
     '',
     'Schéma JSON attendu:',
     JSON.stringify({
+      strengthsSummary: 'string',
+      weaknessesSummary: 'string',
       strengths: [
         { rank: 1, title: 'string', weight: 35, description: 'string' }
       ],

@@ -93,6 +93,8 @@ const AnalysisReportSchema = z.object({
     weight: z.number().int().min(0).max(100),
     description: z.string().min(1)
   })).length(5),
+  strengthsSummary: z.string().min(1),
+  weaknessesSummary: z.string().min(1),
   recommendedActions: z.array(z.object({
     id: z.string().min(1),
     summary: z.string().min(1)
@@ -607,6 +609,82 @@ const dedupeByTitle = (items) => {
   });
 };
 
+const createStrengthsSummary = ({ analysisMode, moodBand, participationRate, strengths }) => {
+  const titles = (strengths || []).map((item) => String(item.title || '').toLowerCase());
+  const hasCohesionSignal = titles.some((title) =>
+    title.includes('ambiance') || title.includes('climat') || title.includes('relation') || title.includes('cohésion')
+  );
+
+  if (hasCohesionSignal && (moodBand === 'positive' || moodBand === 'correcte')) {
+    return "L'équipe fonctionne humainement. Il faut capitaliser sur la cohésion.";
+  }
+
+  if (analysisMode === 'critical') {
+    return "Même sous tension, l'équipe conserve des appuis concrets sur lesquels relancer un redressement crédible.";
+  }
+
+  if (participationRate >= 85) {
+    return "Le collectif reste engagé et mobilisable. Il faut transformer cet appui en décisions visibles.";
+  }
+
+  return "L'équipe conserve des points d'appui utiles. Il faut s'en servir pour stabiliser durablement la dynamique.";
+};
+
+const createWeaknessesSummary = ({ analysisMode, moodBand, weaknesses }) => {
+  const titles = (weaknesses || []).map((item) => String(item.title || '').toLowerCase());
+
+  if (titles.some((title) => title.includes('charge'))) {
+    return "Tant que la charge et le rythme ne sont pas traités, aucune activité d'équipe ne compensera durablement.";
+  }
+
+  if (titles.some((title) => title.includes('clarté') || title.includes('sens'))) {
+    return "Tant que les priorités restent floues, l'équipe continuera à perdre de l'énergie dans des arbitrages inutiles.";
+  }
+
+  if (analysisMode === 'healthy' || moodBand === 'positive') {
+    return "Les points faibles restent contenus, mais ils doivent être traités tôt pour éviter une dégradation progressive.";
+  }
+
+  return "Les fragilités observées ne relèvent pas d'un simple besoin de cohésion; elles demandent des ajustements concrets et rapides.";
+};
+
+const normalizeSectionItems = (items) =>
+  (Array.isArray(items) ? items : []).map((item, index) => ({
+    rank: item.rank || index + 1,
+    title: item.title,
+    weight: clampWeight(item.weight),
+    description: item.description
+  }));
+
+const normalizeStoredAnalysisReportPayload = (payload) => ({
+  ...payload,
+  strengths: normalizeSectionItems(payload.strengths),
+  weaknesses: normalizeSectionItems(payload.weaknesses),
+  strengthsSummary: payload.strengthsSummary && payload.strengthsSummary.trim()
+    ? payload.strengthsSummary
+    : createStrengthsSummary({
+      analysisMode: getAnalysisMode({
+        averageMood: payload.overview?.averageMood,
+        participationRate: payload.overview?.participationRate,
+        trend: payload.overview?.trend
+      }),
+      moodBand: payload.overview?.moodBand,
+      participationRate: payload.overview?.participationRate,
+      strengths: payload.strengths
+    }),
+  weaknessesSummary: payload.weaknessesSummary && payload.weaknessesSummary.trim()
+    ? payload.weaknessesSummary
+    : createWeaknessesSummary({
+      analysisMode: getAnalysisMode({
+        averageMood: payload.overview?.averageMood,
+        participationRate: payload.overview?.participationRate,
+        trend: payload.overview?.trend
+      }),
+      moodBand: payload.overview?.moodBand,
+      weaknesses: payload.weaknesses
+    })
+});
+
 const buildFallbackStrengths = (context) => {
   const excludedCauses = getExcludedWeaknessCauses(context.topCauseWeights);
   const base = dedupeByTitle(getStrengthCandidates({
@@ -625,11 +703,11 @@ const buildFallbackStrengths = (context) => {
   }
 
   return base.map((item, index) => ({
-      rank: index + 1,
-      title: item.title,
-      weight: clampWeight(item.weight),
-      description: item.description
-    }));
+    rank: index + 1,
+    title: item.title,
+    weight: clampWeight(item.weight),
+    description: item.description
+  }));
 };
 
 const buildFallbackWeaknesses = (context) => {
@@ -858,6 +936,17 @@ const normalizeAnalysisReport = ({ llmReport, context }) => {
     return {
       strengths: fallbackStrengths,
       weaknesses: fallbackWeaknesses,
+      strengthsSummary: createStrengthsSummary({
+        analysisMode: context.analysisMode,
+        moodBand: context.moodBand,
+        participationRate: context.participationRate,
+        strengths: fallbackStrengths
+      }),
+      weaknessesSummary: createWeaknessesSummary({
+        analysisMode: context.analysisMode,
+        moodBand: context.moodBand,
+        weaknesses: fallbackWeaknesses
+      }),
       recommendedActions: normalizeCatalogSelection({
         selection: fallbackActions,
         catalog: actionCatalog,
@@ -897,6 +986,8 @@ const normalizeAnalysisReport = ({ llmReport, context }) => {
   return {
     strengths: fallbackStrengths,
     weaknesses: fallbackWeaknesses,
+    strengthsSummary: parsed.data.strengthsSummary,
+    weaknessesSummary: parsed.data.weaknessesSummary,
     recommendedActions,
     teamActivities
   };
@@ -914,6 +1005,8 @@ const buildEmptyAnalysisReport = ({ weekStart, weekEnd, teamId }) => ({
     trend: 'stable',
     trendStrength: 'faible'
   },
+  strengthsSummary: null,
+  weaknessesSummary: null,
   strengths: [],
   weaknesses: [],
   recommendedActions: [],
@@ -921,7 +1014,7 @@ const buildEmptyAnalysisReport = ({ weekStart, weekEnd, teamId }) => ({
 });
 
 const attachAnalysisReportMeta = ({ payload, fromCache, generationCount, generatedAt, canRegenerate }) => ({
-  ...payload,
+  ...normalizeStoredAnalysisReportPayload(payload),
   reportMeta: {
     fromCache,
     generationCount,
@@ -933,17 +1026,23 @@ const attachAnalysisReportMeta = ({ payload, fromCache, generationCount, generat
   }
 });
 
-const serializeAnalysisReportPayload = (payload) => ({
-  weekStart: payload.weekStart,
-  weekEnd: payload.weekEnd,
-  teamId: payload.teamId,
-  generated: payload.generated,
-  overview: payload.overview,
-  strengths: payload.strengths,
-  weaknesses: payload.weaknesses,
-  recommendedActions: payload.recommendedActions,
-  teamActivities: payload.teamActivities
-});
+const serializeAnalysisReportPayload = (payload) => {
+  const normalizedPayload = normalizeStoredAnalysisReportPayload(payload);
+
+  return {
+    weekStart: normalizedPayload.weekStart,
+    weekEnd: normalizedPayload.weekEnd,
+    teamId: normalizedPayload.teamId,
+    generated: normalizedPayload.generated,
+    overview: normalizedPayload.overview,
+    strengthsSummary: normalizedPayload.strengthsSummary,
+    weaknessesSummary: normalizedPayload.weaknessesSummary,
+    strengths: normalizedPayload.strengths,
+    weaknesses: normalizedPayload.weaknesses,
+    recommendedActions: normalizedPayload.recommendedActions,
+    teamActivities: normalizedPayload.teamActivities
+  };
+};
 
 const serializeTeamInsightPayload = (payload) => ({
   weekStart: payload.weekStart,

@@ -630,6 +630,8 @@ test('team weekly analysis report returns structured report for manager', async 
   groqClient.generateTeamWeeklyAnalysisReport = async (payload) => {
     groqPayload = payload;
     return {
+      strengthsSummary: "L'équipe fonctionne humainement. Il faut capitaliser sur la cohésion.",
+      weaknessesSummary: "Tant que la charge et le rythme ne sont pas traités, aucune activité d'équipe ne compensera durablement.",
       strengths: [
         { rank: 1, title: 'Motivation globalement présente', weight: 35, description: 'La motivation semble solide.' },
         { rank: 2, title: 'Participation élevée et régulière', weight: 30, description: 'Participation forte.' },
@@ -666,6 +668,8 @@ test('team weekly analysis report returns structured report for manager', async 
   assert.strictEqual(result.generated, true);
   assert.strictEqual(result.overview.moodBand, 'correcte');
   assert.strictEqual(result.overview.participationRate, 80);
+  assert.strictEqual(result.strengthsSummary, "L'équipe fonctionne humainement. Il faut capitaliser sur la cohésion.");
+  assert.strictEqual(result.weaknessesSummary, "Tant que la charge et le rythme ne sont pas traités, aucune activité d'équipe ne compensera durablement.");
   assert.strictEqual(result.strengths.length, 3);
   assert.ok(result.strengths.some((item) => item.title === 'Ambiance globalement correcte'));
   assert.ok(
@@ -719,6 +723,8 @@ test('team weekly analysis report softens weaknesses for healthy teams', async (
     { category: 'RECOGNITION', count: 1 }
   ];
   groqClient.generateTeamWeeklyAnalysisReport = async () => ({
+    strengthsSummary: 'Texte LLM.',
+    weaknessesSummary: 'Texte LLM.',
     strengths: [
       { rank: 1, title: 'Très bonne ambiance', weight: 40, description: 'Texte LLM ignoré pour verrouiller le rendu.' },
       { rank: 2, title: 'Participation forte', weight: 30, description: 'Texte LLM ignoré pour verrouiller le rendu.' },
@@ -752,6 +758,8 @@ test('team weekly analysis report softens weaknesses for healthy teams', async (
   });
 
   assert.strictEqual(result.overview.moodBand, 'positive');
+  assert.ok(result.strengthsSummary);
+  assert.ok(result.weaknessesSummary);
   assert.ok(result.strengths.some((item) => item.title === 'Ambiance globalement positive'));
   assert.ok(result.weaknesses.every((item) => !item.title.includes('Friction relationnelle')));
   assert.ok(result.weaknesses.every((item) => !item.title.includes('Fatigue motivationnelle')));
@@ -786,6 +794,8 @@ test('team weekly analysis report reframes strengths as points of support for cr
     { category: 'WORK_LIFE_BALANCE', count: 1 }
   ];
   groqClient.generateTeamWeeklyAnalysisReport = async () => ({
+    strengthsSummary: 'Texte LLM.',
+    weaknessesSummary: 'Texte LLM.',
     strengths: [
       { rank: 1, title: 'Ambiance très positive', weight: 40, description: 'Incohérent pour une équipe critique.' },
       { rank: 2, title: 'Motivation élevée', weight: 30, description: 'Incohérent pour une équipe critique.' },
@@ -819,6 +829,8 @@ test('team weekly analysis report reframes strengths as points of support for cr
   });
 
   assert.strictEqual(result.overview.moodBand, 'très dégradée');
+  assert.ok(result.strengthsSummary);
+  assert.ok(result.weaknessesSummary);
   assert.ok(result.strengths.every((item) => !item.title.toLowerCase().includes('positive')));
   assert.ok(result.strengths.some((item) => item.title.includes("L'équipe continue à répondre malgré la difficulté")));
   assert.ok(result.weaknesses.some((item) => item.title === 'Charge de travail excessive ou mal priorisée'));
@@ -861,6 +873,8 @@ test('team weekly analysis report returns cached report without calling Groq', a
       teamId: 'team-1',
       generated: true,
       overview: { moodBand: 'correcte', averageMood: 6.4, participationRate: 80, trend: 'stable', trendStrength: 'faible' },
+      strengthsSummary: null,
+      weaknessesSummary: null,
       strengths: [{ rank: 1, title: 'S1', weight: 30, description: 'd1' }],
       weaknesses: [{ rank: 1, title: 'W1', weight: 30, description: 'd1' }],
       recommendedActions: [{ id: 'reduce-workload', title: 'A', priority: 'Critique', estimatedImpact: '+35%', summary: 's', checklist: ['a'] }],
@@ -884,6 +898,8 @@ test('team weekly analysis report returns cached report without calling Groq', a
   assert.strictEqual(result.reportMeta.generationCount, 1);
   assert.strictEqual(result.reportMeta.canRegenerate, true);
   assert.strictEqual(result.overview.averageMood, 6.4);
+  assert.ok(result.strengthsSummary);
+  assert.ok(result.weaknessesSummary);
 });
 
 test('team weekly analysis report regenerates with forceRegenerate when quota remains', async () => {
@@ -914,6 +930,8 @@ test('team weekly analysis report regenerates with forceRegenerate when quota re
     updatePayload = payload;
   };
   groqClient.generateTeamWeeklyAnalysisReport = async () => ({
+    strengthsSummary: 'Synthèse points forts',
+    weaknessesSummary: 'Synthèse points faibles',
     strengths: [
       { rank: 1, title: 'S1', weight: 40, description: 'd1' },
       { rank: 2, title: 'S2', weight: 35, description: 'd2' },
@@ -951,6 +969,10 @@ test('team weekly analysis report regenerates with forceRegenerate when quota re
   assert.strictEqual(result.reportMeta.generationCount, 2);
   assert.strictEqual(result.reportMeta.canRegenerate, false);
   assert.strictEqual(updatePayload.generationCount, 2);
+  assert.ok(result.strengthsSummary);
+  assert.ok(result.weaknessesSummary);
+  assert.ok(updatePayload.payload.strengthsSummary);
+  assert.ok(updatePayload.payload.weaknessesSummary);
   assert.ok(client.queries.includes('BEGIN'));
   assert.ok(client.queries.includes('COMMIT'));
 });
@@ -1057,6 +1079,8 @@ test('team weekly analysis report falls back when Groq report schema is invalid'
   });
 
   assert.strictEqual(result.generated, true);
+  assert.ok(result.strengthsSummary);
+  assert.ok(result.weaknessesSummary);
   assert.strictEqual(result.strengths.length, 3);
   assert.strictEqual(result.weaknesses.length, 5);
   assert.strictEqual(result.recommendedActions.length, 4);
@@ -1082,6 +1106,8 @@ test('team weekly analysis report deduplicates repeated Groq catalog ids before 
     { category: 'WORKLOAD', count: 2 }
   ];
   groqClient.generateTeamWeeklyAnalysisReport = async () => ({
+    strengthsSummary: 'Synthèse points forts',
+    weaknessesSummary: 'Synthèse points faibles',
     strengths: [
       { rank: 1, title: 'S1', weight: 40, description: 'd1' },
       { rank: 2, title: 'S2', weight: 35, description: 'd2' },
@@ -1122,4 +1148,40 @@ test('team weekly analysis report deduplicates repeated Groq catalog ids before 
     result.teamActivities.map((item) => item.id),
     ['solution-retro', 'recognition-icebreaker', 'low-pressure-offsite']
   );
+});
+
+test('team weekly analysis report backfills section summaries for cached legacy reports', async () => {
+  teamRepository.isMember = async () => true;
+  teamWeeklyReportRepository.getByScope = async () => ({
+    id: 'report-legacy',
+    payload: {
+      weekStart: '2026-02-16',
+      weekEnd: '2026-02-20',
+      teamId: 'team-1',
+      generated: true,
+      overview: { moodBand: 'correcte', averageMood: 6.4, participationRate: 80, trend: 'stable', trendStrength: 'faible' },
+      strengthsSummary: null,
+      weaknessesSummary: null,
+      strengths: [{ rank: 1, title: 'Participation élevée et régulière', weight: 30, description: 'd1' }],
+      weaknesses: [{ rank: 1, title: 'Charge de travail excessive ou mal priorisée', weight: 30, description: 'd1' }],
+      recommendedActions: [],
+      teamActivities: []
+    },
+    generationCount: 1,
+    generatedAt: '2026-02-21T09:30:00.000Z'
+  });
+
+  const result = await teamService.getWeeklyAnalysisReport({
+    userId: 'manager-1',
+    userRole: 'manager',
+    queryTeamId: 'team-1',
+    weekStart: '2026-02-16'
+  });
+
+  assert.strictEqual(result.reportMeta.fromCache, true);
+  assert.strictEqual(
+    result.weaknessesSummary,
+    "Tant que la charge et le rythme ne sont pas traités, aucune activité d'équipe ne compensera durablement."
+  );
+  assert.ok(result.strengthsSummary);
 });

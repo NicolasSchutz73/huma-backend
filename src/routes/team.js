@@ -325,6 +325,8 @@ router.get('/weekly-insight', authenticate, validate(teamSchemas.weeklyInsight),
  *                 participationRate: 80
  *                 trend: stable
  *                 trendStrength: faible
+ *               strengthsSummary: L'équipe fonctionne humainement. Il faut capitaliser sur la cohésion.
+ *               weaknessesSummary: Tant que la charge et le rythme ne sont pas traités, aucune activité d'équipe ne compensera durablement.
  *               strengths:
  *                 - rank: 1
  *                   title: Participation élevée et régulière

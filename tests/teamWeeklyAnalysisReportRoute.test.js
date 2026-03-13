@@ -135,7 +135,13 @@ test('GET /team/weekly-analysis-report returns the expected contract', async () 
       trend: 'baisse',
       trendStrength: 'modérée'
     },
-    strengths: [{ rank: 1, title: 'Bonne ambiance', weight: 35, description: 'Stable.' }, { rank: 2, title: 'Participation élevée', weight: 30, description: 'Forte.' }, { rank: 3, title: 'Motivation présente', weight: 20, description: 'Visible.' }],
+    strengthsSummary: "L'équipe fonctionne humainement. Il faut capitaliser sur la cohésion.",
+    weaknessesSummary: "Tant que la charge et le rythme ne sont pas traités, aucune activité d'équipe ne compensera durablement.",
+    strengths: [
+      { rank: 1, title: 'Bonne ambiance', weight: 35, description: 'Stable.' },
+      { rank: 2, title: 'Participation élevée', weight: 30, description: 'Forte.' },
+      { rank: 3, title: 'Motivation présente', weight: 20, description: 'Visible.' }
+    ],
     weaknesses: [
       { rank: 1, title: 'Charge', weight: 30, description: 'Sujet principal.' },
       { rank: 2, title: 'Équilibre', weight: 25, description: 'Tension.' },
@@ -176,6 +182,8 @@ test('GET /team/weekly-analysis-report returns the expected contract', async () 
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.body.generated, true);
   assert.strictEqual(res.body.overview.moodBand, 'correcte');
+  assert.strictEqual(res.body.strengthsSummary, "L'équipe fonctionne humainement. Il faut capitaliser sur la cohésion.");
+  assert.strictEqual(res.body.weaknessesSummary, "Tant que la charge et le rythme ne sont pas traités, aucune activité d'équipe ne compensera durablement.");
   assert.strictEqual(res.body.strengths.length, 3);
   assert.strictEqual(res.body.weaknesses.length, 5);
   assert.strictEqual(res.body.recommendedActions.length, 4);
