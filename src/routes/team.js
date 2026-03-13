@@ -259,6 +259,7 @@ router.get('/weekly-factors', authenticate, validate(teamSchemas.weeklyFactors),
  *                 averageMood: 7.2
  *                 participation: 4
  *                 participationRate: 80
+ *                 previousParticipationRate: 60
  *                 topCauses: [WORKLOAD, RECOGNITION]
  *                 feedbackCategories:
  *                   ORGANIZATION: 2

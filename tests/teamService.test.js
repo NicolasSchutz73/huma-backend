@@ -340,6 +340,7 @@ test('team weekly insight returns empty payload when user has no team', async ()
     averageMood: null,
     participation: 0,
     participationRate: 0,
+    previousParticipationRate: null,
     topCauses: [],
     feedbackCategories: {},
     daily: []
@@ -379,7 +380,9 @@ test('team weekly insight aggregates metrics and calls Groq with anonymized feed
     { user_id: 'u4' },
     { user_id: 'u5' }
   ];
-  teamRepository.getActiveMemberCountByDateRange = async () => 4;
+  teamRepository.getActiveMemberCountByDateRange = async (_teamId, startDate) => (
+    startDate === '2026-02-16' ? 4 : 3
+  );
   teamRepository.getByDateRange = async () => [
     { date: '2026-02-16', moodValue: 74 },
     { date: '2026-02-17', moodValue: 68 },
@@ -410,6 +413,7 @@ test('team weekly insight aggregates metrics and calls Groq with anonymized feed
   assert.strictEqual(result.metrics.averageMood, 7.1);
   assert.strictEqual(result.metrics.participation, 4);
   assert.strictEqual(result.metrics.participationRate, 80);
+  assert.strictEqual(result.metrics.previousParticipationRate, 60);
   assert.deepStrictEqual(result.metrics.topCauses, ['WORKLOAD', 'RECOGNITION']);
   assert.deepStrictEqual(result.metrics.feedbackCategories, {
     ORGANIZATION: 2,
@@ -527,12 +531,23 @@ test('team weekly insight returns cached payload without calling Groq', async ()
         averageMood: 7.1,
         participation: 4,
         participationRate: 80,
+        previousParticipationRate: 60,
         topCauses: ['WORKLOAD'],
         feedbackCategories: {},
         daily: []
       }
     }
   });
+  teamRepository.getMemberIdsByTeam = async () => [
+    { user_id: 'u1' },
+    { user_id: 'u2' },
+    { user_id: 'u3' },
+    { user_id: 'u4' },
+    { user_id: 'u5' }
+  ];
+  teamRepository.getActiveMemberCountByDateRange = async (_teamId, startDate) => (
+    startDate === '2026-02-09' ? 3 : 4
+  );
   groqClient.generateTeamWeeklyInsight = async () => {
     throw new Error('should not call Groq when cache exists');
   };
@@ -544,6 +559,7 @@ test('team weekly insight returns cached payload without calling Groq', async ()
   });
 
   assert.strictEqual(result.summaryText, 'Résumé déjà stocké');
+  assert.strictEqual(result.metrics.previousParticipationRate, 60);
 });
 
 test('team weekly analysis report rejects employee role', async () => {

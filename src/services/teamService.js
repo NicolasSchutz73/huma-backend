@@ -25,6 +25,7 @@ const EMPTY_INSIGHT_METRICS = {
   averageMood: null,
   participation: 0,
   participationRate: 0,
+  previousParticipationRate: null,
   topCauses: [],
   feedbackCategories: {},
   daily: []
@@ -953,6 +954,37 @@ const serializeTeamInsightPayload = (payload) => ({
   metrics: payload.metrics
 });
 
+const getWeeklyParticipationRateForTeam = async ({ teamId, start, end, teamSize }) => {
+  if (!teamId || !teamSize) return 0;
+
+  const activeMemberCount = await teamRepository.getActiveMemberCountByDateRange(
+    teamId,
+    toDateOnly(start),
+    toDateOnly(end)
+  );
+
+  return Math.round((activeMemberCount * 100) / teamSize);
+};
+
+const enrichTeamInsightMetrics = async ({ teamId, start, metrics }) => {
+  const memberRows = await teamRepository.getMemberIdsByTeam(teamId);
+  const teamSize = memberRows.length;
+  const previousStart = new Date(start);
+  previousStart.setUTCDate(previousStart.getUTCDate() - 7);
+  const previousEnd = new Date(start);
+  previousEnd.setUTCDate(previousEnd.getUTCDate() - 3);
+
+  return {
+    ...metrics,
+    previousParticipationRate: await getWeeklyParticipationRateForTeam({
+      teamId,
+      start: previousStart,
+      end: previousEnd,
+      teamSize
+    })
+  };
+};
+
 const getTeamStats = async ({ userId, queryTeamId }) => {
   const today = new Date().toISOString().split('T')[0];
 
@@ -1168,12 +1200,28 @@ const getWeeklyInsight = async ({ userId, queryTeamId, weekStart }) => {
   });
 
   if (existingInsight) {
-    return existingInsight.payload;
+    return {
+      ...existingInsight.payload,
+      metrics: await enrichTeamInsightMetrics({
+        teamId,
+        start,
+        metrics: {
+          ...EMPTY_INSIGHT_METRICS,
+          ...(existingInsight.payload.metrics || {})
+        }
+      })
+    };
   }
 
-  const [memberRows, activeMemberCount, dailyRows, rawRows, feedbackCategoryRows] = await Promise.all([
+  const previousStart = new Date(start);
+  previousStart.setUTCDate(previousStart.getUTCDate() - 7);
+  const previousEnd = new Date(end);
+  previousEnd.setUTCDate(previousEnd.getUTCDate() - 7);
+
+  const [memberRows, activeMemberCount, previousActiveMemberCount, dailyRows, rawRows, feedbackCategoryRows] = await Promise.all([
     teamRepository.getMemberIdsByTeam(teamId),
     teamRepository.getActiveMemberCountByDateRange(teamId, rangeStartStr, rangeEndStr),
+    teamRepository.getActiveMemberCountByDateRange(teamId, toDateOnly(previousStart), toDateOnly(previousEnd)),
     teamRepository.getByDateRange(teamId, rangeStartStr, rangeEndStr),
     teamRepository.getByDateRangeWithCauses(teamId, rangeStartStr, rangeEndStr),
     feedbackRepository.getWeeklyCategoryCountsByTeam(teamId, rangeStartStr, rangeEndStr)
@@ -1235,6 +1283,7 @@ const getWeeklyInsight = async ({ userId, queryTeamId, weekStart }) => {
     averageMood: moodCount ? Number((moodTotal / moodCount / 10).toFixed(1)) : null,
     participation: activeMemberCount,
     participationRate: teamSize ? Math.round((activeMemberCount * 100) / teamSize) : 0,
+    previousParticipationRate: teamSize ? Math.round((previousActiveMemberCount * 100) / teamSize) : 0,
     topCauses,
     feedbackCategories,
     daily: publicDaily

@@ -127,6 +127,7 @@ test('GET /team/weekly-insight returns the expected contract', async () => {
       averageMood: 7.2,
       participation: 4,
       participationRate: 80,
+      previousParticipationRate: 60,
       topCauses: ['WORKLOAD', 'RECOGNITION'],
       feedbackCategories: {
         ORGANIZATION: 2,
@@ -148,6 +149,7 @@ test('GET /team/weekly-insight returns the expected contract', async () => {
   assert.strictEqual(res.body.generated, true);
   assert.strictEqual(res.body.summaryText, 'Synthèse générée');
   assert.strictEqual(res.body.metrics.participationRate, 80);
+  assert.strictEqual(res.body.metrics.previousParticipationRate, 60);
   assert.deepStrictEqual(res.body.metrics.feedbackCategories, {
     ORGANIZATION: 2,
     RECOGNITION: 1
