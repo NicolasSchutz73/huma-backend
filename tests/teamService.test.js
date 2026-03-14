@@ -18,6 +18,9 @@ const originalRepository = {
   getByDateRange: teamRepository.getByDateRange,
   getByDateRangeWithCauses: teamRepository.getByDateRangeWithCauses,
   getMemberIdsByTeam: teamRepository.getMemberIdsByTeam,
+  getTodayStats: teamRepository.getTodayStats,
+  getTodayCauses: teamRepository.getTodayCauses,
+  getWeeklyTrend: teamRepository.getWeeklyTrend,
   getActiveMemberCountByDateRange: teamRepository.getActiveMemberCountByDateRange,
   getTeamById: teamRepository.getTeamById,
   createTeam: teamRepository.createTeam,
@@ -49,6 +52,9 @@ test.afterEach(() => {
   teamRepository.getByDateRange = originalRepository.getByDateRange;
   teamRepository.getByDateRangeWithCauses = originalRepository.getByDateRangeWithCauses;
   teamRepository.getMemberIdsByTeam = originalRepository.getMemberIdsByTeam;
+  teamRepository.getTodayStats = originalRepository.getTodayStats;
+  teamRepository.getTodayCauses = originalRepository.getTodayCauses;
+  teamRepository.getWeeklyTrend = originalRepository.getWeeklyTrend;
   teamRepository.getActiveMemberCountByDateRange = originalRepository.getActiveMemberCountByDateRange;
   teamRepository.getTeamById = originalRepository.getTeamById;
   teamRepository.createTeam = originalRepository.createTeam;
@@ -182,6 +188,36 @@ test('team weekly summary returns empty payload when user has no team', async ()
       label: 'Indice annuel évolutif'
     }
   });
+});
+
+test('team stats aggregates today score and weekly trend for the resolved team', async () => {
+  teamRepository.getFirstTeamIdByUser = async () => 'team-1';
+  teamRepository.getMemberIdsByTeam = async () => [
+    { user_id: 'user-1' },
+    { user_id: 'user-2' }
+  ];
+  teamRepository.getTodayStats = async () => ({ avgMood: 78, count: 2 });
+  teamRepository.getTodayCauses = async () => [
+    { causes: '["WORKLOAD","BALANCE"]' },
+    { causes: '["WORKLOAD"]' }
+  ];
+  teamRepository.getWeeklyTrend = async () => [
+    { day: '2026-03-10', avgMood: 72 },
+    { day: '2026-03-11', avgMood: 84 }
+  ];
+
+  const result = await teamService.getTeamStats({ userId: 'manager-1' });
+
+  assert.strictEqual(result.globalScore, 7.8);
+  assert.strictEqual(result.moodLabel, "Tout va bien aujourd'hui");
+  assert.deepStrictEqual(result.distribution, {
+    WORKLOAD: 100,
+    BALANCE: 50
+  });
+  assert.deepStrictEqual(result.weeklyTrend, [
+    { day: 'M', value: 7.2 },
+    { day: 'M', value: 8.4 }
+  ]);
 });
 
 test('team weekly summary rejects with FORBIDDEN when user is not a team member', async () => {

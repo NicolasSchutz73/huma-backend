@@ -1090,7 +1090,9 @@ const getTeamStats = async ({ userId, queryTeamId }) => {
     const memberIds = members.map(m => m.user_id);
 
     const todayData = await teamRepository.getTodayStats({ memberIds, today });
-    const globalScore = todayData && todayData.avgMood ? Math.round((todayData.avgMood / 10) * 10) / 10 : 0;
+    const globalScore = todayData && todayData.avgMood !== null
+      ? Math.round((todayData.avgMood / 10) * 10) / 10
+      : 0;
     const totalCheckins = todayData && todayData.count ? todayData.count : 0;
 
     const causesData = await teamRepository.getTodayCauses({ memberIds, today });

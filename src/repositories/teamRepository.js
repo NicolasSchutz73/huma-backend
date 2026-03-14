@@ -69,7 +69,8 @@ const getTodayStats = async ({ memberIds, today }) => {
   const sql = `
     SELECT AVG(mood_value)::float as avgMood, COUNT(*)::int as count
     FROM check_ins
-    WHERE user_id IN (${placeholders}) AND DATE("timestamp") = DATE($${memberIds.length + 1})
+    WHERE user_id IN (${placeholders})
+      AND DATE("timestamp" AT TIME ZONE 'UTC') = DATE($${memberIds.length + 1})
   `;
   return db.get(sql, [...memberIds, today]);
 };
@@ -82,7 +83,9 @@ const getTodayCauses = async ({ memberIds, today }) => {
   const sql = `
     SELECT causes
     FROM check_ins
-    WHERE user_id IN (${placeholders}) AND DATE("timestamp") = DATE($${memberIds.length + 1}) AND causes IS NOT NULL
+    WHERE user_id IN (${placeholders})
+      AND DATE("timestamp" AT TIME ZONE 'UTC') = DATE($${memberIds.length + 1})
+      AND causes IS NOT NULL
   `;
   return db.all(sql, [...memberIds, today]);
 };
@@ -93,12 +96,12 @@ const getWeeklyTrend = async ({ memberIds }) => {
   }
   const placeholders = buildPlaceholders(memberIds.length);
   const sql = `
-    SELECT DATE("timestamp") as day, AVG(mood_value)::float as avgMood
+    SELECT DATE("timestamp" AT TIME ZONE 'UTC') as day, AVG(mood_value)::float as avgMood
     FROM check_ins
     WHERE user_id IN (${placeholders})
-      AND "timestamp" >= (CURRENT_DATE - INTERVAL '7 days')
-    GROUP BY DATE("timestamp")
-    ORDER BY DATE("timestamp") ASC
+      AND ("timestamp" AT TIME ZONE 'UTC') >= ((NOW() AT TIME ZONE 'UTC') - INTERVAL '7 days')
+    GROUP BY DATE("timestamp" AT TIME ZONE 'UTC')
+    ORDER BY DATE("timestamp" AT TIME ZONE 'UTC') ASC
   `;
   return db.all(sql, memberIds);
 };
