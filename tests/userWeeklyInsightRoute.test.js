@@ -6,28 +6,28 @@ process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://user:pass@loc
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
 
 const dbQuery = require('../src/db/query');
-const teamService = require('../src/services/teamService');
-const teamRouter = require('../src/routes/team');
+const userService = require('../src/services/userService');
+const userRouter = require('../src/routes/user_routes');
 
 const originalDbQuery = {
   get: dbQuery.get
 };
-const originalTeamService = {
-  getWeeklyInsight: teamService.getWeeklyInsight
+const originalUserService = {
+  getWeeklyInsight: userService.getWeeklyInsight
 };
 
 const createToken = () => jwt.sign({ sub: 'user-1' }, process.env.JWT_SECRET);
 
 const getWeeklyInsightHandlers = () => {
-  const layer = teamRouter.stack.find(
-    (entry) => entry.route && entry.route.path === '/weekly-insight' && entry.route.methods.get
+  const layer = userRouter.stack.find(
+    (entry) => entry.route && entry.route.path === '/me/weekly-insight' && entry.route.methods.get
   );
   return layer.route.stack.map((entry) => entry.handle);
 };
 
 const createReq = ({ headers = {}, query = {} } = {}) => ({
   method: 'GET',
-  url: '/weekly-insight',
+  url: '/me/weekly-insight',
   headers,
   query,
   params: {},
@@ -72,10 +72,10 @@ const runHandlers = async (handlers, req, res) => {
 
 test.afterEach(() => {
   dbQuery.get = originalDbQuery.get;
-  teamService.getWeeklyInsight = originalTeamService.getWeeklyInsight;
+  userService.getWeeklyInsight = originalUserService.getWeeklyInsight;
 });
 
-test('GET /team/weekly-insight requires authentication', async () => {
+test('GET /users/me/weekly-insight requires authentication', async () => {
   const handlers = getWeeklyInsightHandlers();
   const req = createReq();
   const res = createRes();
@@ -86,7 +86,7 @@ test('GET /team/weekly-insight requires authentication', async () => {
   );
 });
 
-test('GET /team/weekly-insight validates weekStart format', async () => {
+test('GET /users/me/weekly-insight validates weekStart format', async () => {
   const handlers = getWeeklyInsightHandlers();
   const req = createReq({
     headers: {
@@ -105,7 +105,7 @@ test('GET /team/weekly-insight validates weekStart format', async () => {
   );
 });
 
-test('GET /team/weekly-insight returns the expected contract', async () => {
+test('GET /users/me/weekly-insight returns the expected contract', async () => {
   const handlers = getWeeklyInsightHandlers();
   const req = createReq({
     headers: {
@@ -117,26 +117,23 @@ test('GET /team/weekly-insight returns the expected contract', async () => {
   });
   const res = createRes();
   dbQuery.get = async () => ({ id: 'user-1', organization_id: 'org-1' });
-  teamService.getWeeklyInsight = async () => ({
+  userService.getWeeklyInsight = async () => ({
     weekStart: '2026-02-16',
     weekEnd: '2026-02-20',
-    teamId: 'team-1',
     generated: true,
-    summaryText: 'Synthèse générée',
+    summaryText: 'Ta semaine reste bien équilibrée.',
     metrics: {
-      averageMood: 7.2,
+      averageMood: 8,
       participation: 4,
       participationRate: 80,
-      previousParticipationRate: 60,
       topCauses: ['WORKLOAD', 'RECOGNITION'],
       feedbackCategories: {
-        ORGANIZATION: 2,
-        RECOGNITION: 1
+        ORGANIZATION: 1
       },
       daily: [
         {
           date: '2026-02-16',
-          moodValue: 7.4,
+          moodValue: 7.8,
           label: 'Jour excellent'
         }
       ]
@@ -147,11 +144,9 @@ test('GET /team/weekly-insight returns the expected contract', async () => {
 
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.body.generated, true);
-  assert.strictEqual(res.body.summaryText, 'Synthèse générée');
+  assert.strictEqual(res.body.summaryText, 'Ta semaine reste bien équilibrée.');
   assert.strictEqual(res.body.metrics.participationRate, 80);
-  assert.strictEqual(res.body.metrics.previousParticipationRate, 60);
   assert.deepStrictEqual(res.body.metrics.feedbackCategories, {
-    ORGANIZATION: 2,
-    RECOGNITION: 1
+    ORGANIZATION: 1
   });
 });

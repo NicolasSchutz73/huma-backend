@@ -100,11 +100,30 @@ test('GET /team/weekly-analysis-report validates weekStart format', async () => 
   );
 });
 
+test('GET /team/weekly-analysis-report validates forceRegenerate format', async () => {
+  const handlers = getHandlers('/weekly-analysis-report');
+  dbQuery.get = async () => ({ id: 'user-1', organization_id: 'org-1', role: 'manager' });
+
+  await assert.rejects(
+    runHandlers(
+      handlers,
+      createReq({
+        headers: { authorization: `Bearer ${createToken()}` },
+        query: { forceRegenerate: 'yes' }
+      }),
+      createRes()
+    ),
+    (err) => err.status === 400 && err.code === 'VALIDATION_ERROR'
+  );
+});
+
 test('GET /team/weekly-analysis-report returns the expected contract', async () => {
   const handlers = getHandlers('/weekly-analysis-report');
   const res = createRes();
   dbQuery.get = async () => ({ id: 'user-1', organization_id: 'org-1', role: 'manager' });
-  teamService.getWeeklyAnalysisReport = async () => ({
+  teamService.getWeeklyAnalysisReport = async ({ forceRegenerate }) => {
+    assert.strictEqual(forceRegenerate, true);
+    return ({
     weekStart: '2026-02-23',
     weekEnd: '2026-02-27',
     teamId: 'team-1',
@@ -116,7 +135,13 @@ test('GET /team/weekly-analysis-report returns the expected contract', async () 
       trend: 'baisse',
       trendStrength: 'modérée'
     },
-    strengths: [{ rank: 1, title: 'Bonne ambiance', weight: 35, description: 'Stable.' }, { rank: 2, title: 'Participation élevée', weight: 30, description: 'Forte.' }, { rank: 3, title: 'Motivation présente', weight: 20, description: 'Visible.' }],
+    strengthsSummary: "L'équipe fonctionne humainement. Il faut capitaliser sur la cohésion.",
+    weaknessesSummary: "Tant que la charge et le rythme ne sont pas traités, aucune activité d'équipe ne compensera durablement.",
+    strengths: [
+      { rank: 1, title: 'Bonne ambiance', weight: 35, description: 'Stable.' },
+      { rank: 2, title: 'Participation élevée', weight: 30, description: 'Forte.' },
+      { rank: 3, title: 'Motivation présente', weight: 20, description: 'Visible.' }
+    ],
     weaknesses: [
       { rank: 1, title: 'Charge', weight: 30, description: 'Sujet principal.' },
       { rank: 2, title: 'Équilibre', weight: 25, description: 'Tension.' },
@@ -134,14 +159,22 @@ test('GET /team/weekly-analysis-report returns the expected contract', async () 
       { id: 'solution-retro', title: "Rétrospective d'équipe orientée solutions", estimatedImpact: '+15%', objective: 'Faire émerger irritants et solutions concrètes', format: 'Atelier collectif (1h-1h30)', bullets: ['a'], benefit: 'Utile.' },
       { id: 'recognition-icebreaker', title: 'Ice breaker Reconnaissance', estimatedImpact: '+10%', objective: 'Renforcer la reconnaissance entre pairs', format: 'Court rituel (15-20min)', bullets: ['a'], benefit: 'Simple.' },
       { id: 'low-pressure-offsite', title: 'Activité hors cadre à faible charge mentale', estimatedImpact: '+20%', objective: 'Décompression sans pression', format: 'Moment informel', bullets: ['a'], benefit: 'Complémentaire.' }
-    ]
+    ],
+    reportMeta: {
+      fromCache: false,
+      generationCount: 1,
+      generationLimit: 2,
+      canRegenerate: true,
+      generatedAt: '2026-02-28T09:00:00.000Z'
+    }
   });
+  };
 
   await runHandlers(
     handlers,
     createReq({
       headers: { authorization: `Bearer ${createToken()}` },
-      query: { weekStart: '2026-02-23' }
+      query: { weekStart: '2026-02-23', forceRegenerate: 'true' }
     }),
     res
   );
@@ -149,8 +182,12 @@ test('GET /team/weekly-analysis-report returns the expected contract', async () 
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.body.generated, true);
   assert.strictEqual(res.body.overview.moodBand, 'correcte');
+  assert.strictEqual(res.body.strengthsSummary, "L'équipe fonctionne humainement. Il faut capitaliser sur la cohésion.");
+  assert.strictEqual(res.body.weaknessesSummary, "Tant que la charge et le rythme ne sont pas traités, aucune activité d'équipe ne compensera durablement.");
   assert.strictEqual(res.body.strengths.length, 3);
   assert.strictEqual(res.body.weaknesses.length, 5);
   assert.strictEqual(res.body.recommendedActions.length, 4);
   assert.strictEqual(res.body.teamActivities.length, 3);
+  assert.strictEqual(res.body.reportMeta.generationCount, 1);
+  assert.strictEqual(res.body.reportMeta.fromCache, false);
 });

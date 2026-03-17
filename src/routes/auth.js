@@ -24,8 +24,11 @@ const authSchemas = require('../validators/authSchemas');
  *                 type: string
  *                 minLength: 8
  *             required: [email, password]
+ *           example:
+ *             email: "new.user@example.com"
+ *             password: "ChangeMe123!"
  *     responses:
- *       200:
+ *       201:
  *         description: User registered
  *         content:
  *           application/json:
@@ -41,6 +44,8 @@ const authSchemas = require('../validators/authSchemas');
  *                 organization_id: 9a0a0b93-1d3c-4b1c-8e8f-2dd4d9c9c0e3
  *       400:
  *         description: Invalid input
+ *       409:
+ *         description: Email already exists
  *       500:
  *         description: Server error
  */
@@ -66,6 +71,9 @@ router.post('/register', validate(authSchemas.register), authController.register
  *                 type: string
  *                 minLength: 8
  *             required: [email, password]
+ *           example:
+ *             email: "employee01@local.test"
+ *             password: "adminadmin"
  *     responses:
  *       200:
  *         description: Login success
@@ -81,8 +89,15 @@ router.post('/register', validate(authSchemas.register), authController.register
  *                 email: test@example.com
  *                 role: employee
  *                 organizationId: 9a0a0b93-1d3c-4b1c-8e8f-2dd4d9c9c0e3
+ *                 firstName: Jean
+ *                 lastName: Dupont
+ *                 onboardingCompleted: true
+ *       400:
+ *         description: Invalid input
  *       401:
  *         description: Unauthorized
+ *       404:
+ *         description: User not found
  *       500:
  *         description: Server error
  */

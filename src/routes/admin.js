@@ -14,6 +14,27 @@ const authenticate = require('../middleware/auth');
  *     responses:
  *       200:
  *         description: Seed execution summary
+ *         content:
+ *           application/json:
+ *             example:
+ *               skipped: false
+ *               users:
+ *                 created: 23
+ *               onboarding:
+ *                 ensured: 22
+ *               teams:
+ *                 created: 2
+ *               teamMembers:
+ *                 ensured: 22
+ *               checkins:
+ *                 created: 419
+ *                 updated: 0
+ *                 deleted: 0
+ *                 trimmedOlderRows: 1
+ *               feedbacks:
+ *                 created: 12
+ *                 trimmedOlderRows: 1
+ *                 cleanedLegacy: 1
  *       401:
  *         description: Unauthorized
  *       403:

@@ -87,12 +87,54 @@ const initDb = async () => {
       )
     `);
 
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS team_weekly_reports (
+        id TEXT PRIMARY KEY,
+        team_id TEXT NOT NULL,
+        week_start DATE NOT NULL,
+        week_end DATE NOT NULL,
+        report_type TEXT NOT NULL,
+        payload_json JSONB NOT NULL,
+        generation_count INTEGER NOT NULL DEFAULT 1 CHECK (generation_count >= 0),
+        generated_at TIMESTAMPTZ,
+        created_by_user_id TEXT,
+        updated_by_user_id TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE (team_id, week_start, report_type),
+        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_weekly_insights (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        week_start DATE NOT NULL,
+        week_end DATE NOT NULL,
+        payload_json JSONB NOT NULL,
+        generated_at TIMESTAMPTZ,
+        created_by_user_id TEXT,
+        updated_by_user_id TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE (user_id, week_start),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
     await db.query('CREATE INDEX IF NOT EXISTS idx_teams_org_id ON teams(organization_id)');
     await db.query('CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(organization_id)');
     await db.query('CREATE INDEX IF NOT EXISTS idx_team_members_team_id ON team_members(team_id)');
     await db.query('CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON team_members(user_id)');
     await db.query('CREATE INDEX IF NOT EXISTS idx_check_ins_user_timestamp ON check_ins(user_id, "timestamp")');
     await db.query('CREATE INDEX IF NOT EXISTS idx_feedbacks_user_id ON feedbacks(user_id)');
+    await db.query('CREATE INDEX IF NOT EXISTS idx_team_weekly_reports_scope ON team_weekly_reports(team_id, week_start, report_type)');
+    await db.query('CREATE INDEX IF NOT EXISTS idx_user_weekly_insights_scope ON user_weekly_insights(user_id, week_start)');
 
     await db.query('COMMIT');
   } catch (err) {

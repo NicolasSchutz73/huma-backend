@@ -11,6 +11,12 @@ const healthController = require('../controllers/healthController');
  *     responses:
  *       200:
  *         description: Service is healthy
+ *         content:
+ *           application/json:
+ *             example:
+ *               status: success
+ *               message: Server is healthy
+ *               timestamp: "2026-03-10T10:00:00.000Z"
  *       500:
  *         description: Server error
  */

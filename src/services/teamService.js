@@ -1,8 +1,10 @@
 const { v4: uuidv4 } = require('uuid');
 const { z } = require('zod');
 const teamRepository = require('../repositories/teamRepository');
+const dbPool = require('../db/index');
 const userRepository = require('../repositories/userRepository');
 const feedbackRepository = require('../repositories/feedbackRepository');
+const teamWeeklyReportRepository = require('../repositories/teamWeeklyReportRepository');
 const { AppError } = require('../utils/errors');
 const groqClient = require('./groqClient');
 const { actionCatalog, activityCatalog } = require('./teamAnalysisCatalog');
@@ -23,6 +25,7 @@ const EMPTY_INSIGHT_METRICS = {
   averageMood: null,
   participation: 0,
   participationRate: 0,
+  previousParticipationRate: null,
   topCauses: [],
   feedbackCategories: {},
   daily: []
@@ -46,6 +49,9 @@ const FEEDBACK_CATEGORY_LABELS = {
   WORK_LIFE_BALANCE: 'équilibre vie pro / vie perso',
   FACILITIES: 'environnement de travail'
 };
+
+const WEEKLY_REPORT_GENERATION_LIMIT = 2;
+const REPORT_TYPE_WEEKLY_TEAM_INSIGHT = teamWeeklyReportRepository.REPORT_TYPE_WEEKLY_TEAM_INSIGHT;
 
 const positiveCauseMap = {
   RELATIONS: 'Bonne ambiance et relations d’équipe',
@@ -80,13 +86,15 @@ const AnalysisReportSchema = z.object({
     title: z.string().min(1),
     weight: z.number().int().min(0).max(100),
     description: z.string().min(1)
-  })).length(3),
+  })).min(1).max(3),
   weaknesses: z.array(z.object({
     rank: z.number().int().min(1),
     title: z.string().min(1),
     weight: z.number().int().min(0).max(100),
     description: z.string().min(1)
-  })).length(5),
+  })).min(1).max(5),
+  strengthsSummary: z.string().min(1),
+  weaknessesSummary: z.string().min(1),
   recommendedActions: z.array(z.object({
     id: z.string().min(1),
     summary: z.string().min(1)
@@ -242,6 +250,95 @@ const getDailyTrendSummary = (daily) => {
       moodValue: maxEntry.moodValue
     },
     summary: summaryParts.join(' ')
+  };
+};
+
+const getDeltaValue = (currentValue, previousValue) => {
+  if (currentValue === null || currentValue === undefined) return null;
+  if (previousValue === null || previousValue === undefined) return null;
+  return roundToOneDecimal(currentValue - previousValue);
+};
+
+const getWeekParticipationRate = ({ participation, period }) => {
+  if (period !== 'week') return null;
+  return Math.round((participation * 100) / 5);
+};
+
+const getQvtBarometerValue = ({ averageMood, participationRate, trend }) => {
+  if (averageMood === null || averageMood === undefined) return null;
+
+  let score = averageMood * 0.75;
+  if (participationRate !== null && participationRate !== undefined) {
+    score += (participationRate / 100) * 2;
+  }
+
+  if (trend === 'hausse') score += 0.5;
+  else if (trend === 'baisse') score -= 0.5;
+
+  return roundToOneDecimal(Math.max(0, Math.min(10, score)));
+};
+
+const buildWeeklyDashboard = ({ current, previous }) => ({
+  averageMood: {
+    value: current.averageMood,
+    deltaVsPreviousWeek: previous.hasData ? getDeltaValue(current.averageMood, previous.averageMood) : null
+  },
+  participation: {
+    value: current.participationRate,
+    deltaVsPreviousWeek: previous.hasData ? getDeltaValue(current.participationRate, previous.participationRate) : null
+  },
+  qvtBarometer: {
+    value: current.qvtBarometerValue,
+    deltaVsPreviousWeek: previous.hasData ? getDeltaValue(current.qvtBarometerValue, previous.qvtBarometerValue) : null,
+    label: 'Indice annuel évolutif'
+  }
+});
+
+const buildWeeklySummarySnapshot = ({ start, end, period, dailyRows, rawRows }) => {
+  const moodByDate = {};
+  dailyRows.forEach((row) => {
+    if (row.moodValue !== null && row.moodValue !== undefined) {
+      moodByDate[row.date] = Number(row.moodValue.toFixed(1));
+    }
+  });
+
+  let moodTotal = 0;
+  let moodCount = 0;
+  rawRows.forEach((row) => {
+    if (row.moodValue !== null && row.moodValue !== undefined) {
+      moodTotal += row.moodValue;
+      moodCount += 1;
+    }
+  });
+
+  const stats = createWeeklyStats();
+  const dailyResult = buildPeriodDaily({ period, start, end, moodByDate, stats });
+  const averageMood = moodCount ? Number((moodTotal / moodCount / 10).toFixed(1)) : null;
+  const publicDaily = dailyResult.daily.map((entry) => ({
+    date: entry.date,
+    moodValue: entry.moodValue === null || entry.moodValue === undefined ? null : Number((entry.moodValue / 10).toFixed(1)),
+    label: entry.label
+  }));
+  const trendSummary = getDailyTrendSummary(publicDaily);
+  const participationRate = getWeekParticipationRate({ participation: dailyResult.participation, period });
+  const qvtBarometerValue = getQvtBarometerValue({
+    averageMood,
+    participationRate,
+    trend: trendSummary.trend
+  });
+
+  return {
+    participation: dailyResult.participation,
+    averageMood,
+    daily: dailyResult.daily,
+    stats,
+    hasData: rawRows.length > 0,
+    dashboardMetrics: {
+      averageMood,
+      participationRate,
+      qvtBarometerValue,
+      hasData: rawRows.length > 0
+    }
   };
 };
 
@@ -512,45 +609,109 @@ const dedupeByTitle = (items) => {
   });
 };
 
+const createStrengthsSummary = ({ analysisMode, moodBand, participationRate, strengths }) => {
+  const titles = (strengths || []).map((item) => String(item.title || '').toLowerCase());
+  const hasCohesionSignal = titles.some((title) =>
+    title.includes('ambiance') || title.includes('climat') || title.includes('relation') || title.includes('cohésion')
+  );
+
+  if (hasCohesionSignal && (moodBand === 'positive' || moodBand === 'correcte')) {
+    return "L'équipe fonctionne humainement. Il faut capitaliser sur la cohésion.";
+  }
+
+  if (analysisMode === 'critical') {
+    return "Même sous tension, l'équipe conserve des appuis concrets sur lesquels relancer un redressement crédible.";
+  }
+
+  if (participationRate >= 85) {
+    return "Le collectif reste engagé et mobilisable. Il faut transformer cet appui en décisions visibles.";
+  }
+
+  return "L'équipe conserve des points d'appui utiles. Il faut s'en servir pour stabiliser durablement la dynamique.";
+};
+
+const createWeaknessesSummary = ({ analysisMode, moodBand, weaknesses }) => {
+  const titles = (weaknesses || []).map((item) => String(item.title || '').toLowerCase());
+
+  if (titles.some((title) => title.includes('charge'))) {
+    return "Tant que la charge et le rythme ne sont pas traités, aucune activité d'équipe ne compensera durablement.";
+  }
+
+  if (titles.some((title) => title.includes('clarté') || title.includes('sens'))) {
+    return "Tant que les priorités restent floues, l'équipe continuera à perdre de l'énergie dans des arbitrages inutiles.";
+  }
+
+  if (analysisMode === 'healthy' || moodBand === 'positive') {
+    return "Les points faibles restent contenus, mais ils doivent être traités tôt pour éviter une dégradation progressive.";
+  }
+
+  return "Les fragilités observées ne relèvent pas d'un simple besoin de cohésion; elles demandent des ajustements concrets et rapides.";
+};
+
+const normalizeSectionItems = (items) =>
+  (Array.isArray(items) ? items : []).map((item, index) => ({
+    rank: item.rank || index + 1,
+    title: item.title,
+    weight: clampWeight(item.weight),
+    description: item.description
+  }));
+
+const reRankSectionItems = (items) =>
+  normalizeSectionItems(items).map((item, index) => ({
+    ...item,
+    rank: index + 1
+  }));
+
+const normalizeStoredAnalysisReportPayload = (payload) => ({
+  ...payload,
+  strengths: normalizeSectionItems(payload.strengths),
+  weaknesses: normalizeSectionItems(payload.weaknesses),
+  strengthsSummary: payload.strengthsSummary && payload.strengthsSummary.trim()
+    ? payload.strengthsSummary
+    : createStrengthsSummary({
+      analysisMode: getAnalysisMode({
+        averageMood: payload.overview?.averageMood,
+        participationRate: payload.overview?.participationRate,
+        trend: payload.overview?.trend
+      }),
+      moodBand: payload.overview?.moodBand,
+      participationRate: payload.overview?.participationRate,
+      strengths: payload.strengths
+    }),
+  weaknessesSummary: payload.weaknessesSummary && payload.weaknessesSummary.trim()
+    ? payload.weaknessesSummary
+    : createWeaknessesSummary({
+      analysisMode: getAnalysisMode({
+        averageMood: payload.overview?.averageMood,
+        participationRate: payload.overview?.participationRate,
+        trend: payload.overview?.trend
+      }),
+      moodBand: payload.overview?.moodBand,
+      weaknesses: payload.weaknesses
+    })
+});
+
 const buildFallbackStrengths = (context) => {
   const excludedCauses = getExcludedWeaknessCauses(context.topCauseWeights);
-  const base = dedupeByTitle(getStrengthCandidates({
+  return dedupeByTitle(getStrengthCandidates({
     ...context,
     excludedCauses
   }))
     .sort((a, b) => b.weight - a.weight || a.title.localeCompare(b.title))
-    .slice(0, 3);
-
-  while (base.length < 3) {
-    base.push({
-      title: `Point fort complémentaire ${base.length + 1}`,
-      weight: 10,
-      description: "Le collectif conserve des points d'appui malgré les tensions observées."
-    });
-  }
-
-  return base.map((item, index) => ({
-      rank: index + 1,
-      title: item.title,
-      weight: clampWeight(item.weight),
-      description: item.description
-    }));
+    .slice(0, 3)
+    .map((item, index) => ({
+    rank: index + 1,
+    title: item.title,
+    weight: clampWeight(item.weight),
+    description: item.description
+  }));
 };
 
 const buildFallbackWeaknesses = (context) => {
-  const base = getWeaknessCandidates(context)
+  return getWeaknessCandidates(context)
     .sort((a, b) => b.weight - a.weight || a.title.localeCompare(b.title))
-    .slice(0, 5);
-
-  while (base.length < 5) {
-    base.push({
-      title: `Point d'attention complémentaire ${base.length + 1}`,
-      weight: 0,
-      description: "Aucun signal critique supplémentaire n'émerge sur cette période."
-    });
-  }
-
-  return base.map((item, index) => ({
+    .slice(0, 5)
+    .map((item, index) => ({
     rank: index + 1,
     title: item.title,
     weight: clampWeight(item.weight),
@@ -763,6 +924,17 @@ const normalizeAnalysisReport = ({ llmReport, context }) => {
     return {
       strengths: fallbackStrengths,
       weaknesses: fallbackWeaknesses,
+      strengthsSummary: createStrengthsSummary({
+        analysisMode: context.analysisMode,
+        moodBand: context.moodBand,
+        participationRate: context.participationRate,
+        strengths: fallbackStrengths
+      }),
+      weaknessesSummary: createWeaknessesSummary({
+        analysisMode: context.analysisMode,
+        moodBand: context.moodBand,
+        weaknesses: fallbackWeaknesses
+      }),
       recommendedActions: normalizeCatalogSelection({
         selection: fallbackActions,
         catalog: actionCatalog,
@@ -800,8 +972,10 @@ const normalizeAnalysisReport = ({ llmReport, context }) => {
   }
 
   return {
-    strengths: fallbackStrengths,
-    weaknesses: fallbackWeaknesses,
+    strengths: reRankSectionItems(parsed.data.strengths),
+    weaknesses: reRankSectionItems(parsed.data.weaknesses),
+    strengthsSummary: parsed.data.strengthsSummary,
+    weaknessesSummary: parsed.data.weaknessesSummary,
     recommendedActions,
     teamActivities
   };
@@ -819,11 +993,84 @@ const buildEmptyAnalysisReport = ({ weekStart, weekEnd, teamId }) => ({
     trend: 'stable',
     trendStrength: 'faible'
   },
+  strengthsSummary: null,
+  weaknessesSummary: null,
   strengths: [],
   weaknesses: [],
   recommendedActions: [],
   teamActivities: []
 });
+
+const attachAnalysisReportMeta = ({ payload, fromCache, generationCount, generatedAt, canRegenerate }) => ({
+  ...normalizeStoredAnalysisReportPayload(payload),
+  reportMeta: {
+    fromCache,
+    generationCount,
+    generationLimit: WEEKLY_REPORT_GENERATION_LIMIT,
+    canRegenerate: typeof canRegenerate === 'boolean'
+      ? canRegenerate
+      : generationCount < WEEKLY_REPORT_GENERATION_LIMIT,
+    generatedAt: generatedAt || null
+  }
+});
+
+const serializeAnalysisReportPayload = (payload) => {
+  const normalizedPayload = normalizeStoredAnalysisReportPayload(payload);
+
+  return {
+    weekStart: normalizedPayload.weekStart,
+    weekEnd: normalizedPayload.weekEnd,
+    teamId: normalizedPayload.teamId,
+    generated: normalizedPayload.generated,
+    overview: normalizedPayload.overview,
+    strengthsSummary: normalizedPayload.strengthsSummary,
+    weaknessesSummary: normalizedPayload.weaknessesSummary,
+    strengths: normalizedPayload.strengths,
+    weaknesses: normalizedPayload.weaknesses,
+    recommendedActions: normalizedPayload.recommendedActions,
+    teamActivities: normalizedPayload.teamActivities
+  };
+};
+
+const serializeTeamInsightPayload = (payload) => ({
+  weekStart: payload.weekStart,
+  weekEnd: payload.weekEnd,
+  teamId: payload.teamId,
+  generated: payload.generated,
+  summaryText: payload.summaryText,
+  metrics: payload.metrics
+});
+
+const getWeeklyParticipationRateForTeam = async ({ teamId, start, end, teamSize }) => {
+  if (!teamId || !teamSize) return 0;
+
+  const activeMemberCount = await teamRepository.getActiveMemberCountByDateRange(
+    teamId,
+    toDateOnly(start),
+    toDateOnly(end)
+  );
+
+  return Math.round((activeMemberCount * 100) / teamSize);
+};
+
+const enrichTeamInsightMetrics = async ({ teamId, start, metrics }) => {
+  const memberRows = await teamRepository.getMemberIdsByTeam(teamId);
+  const teamSize = memberRows.length;
+  const previousStart = new Date(start);
+  previousStart.setUTCDate(previousStart.getUTCDate() - 7);
+  const previousEnd = new Date(start);
+  previousEnd.setUTCDate(previousEnd.getUTCDate() - 3);
+
+  return {
+    ...metrics,
+    previousParticipationRate: await getWeeklyParticipationRateForTeam({
+      teamId,
+      start: previousStart,
+      end: previousEnd,
+      teamSize
+    })
+  };
+};
 
 const getTeamStats = async ({ userId, queryTeamId }) => {
   const today = new Date().toISOString().split('T')[0];
@@ -843,7 +1090,9 @@ const getTeamStats = async ({ userId, queryTeamId }) => {
     const memberIds = members.map(m => m.user_id);
 
     const todayData = await teamRepository.getTodayStats({ memberIds, today });
-    const globalScore = todayData && todayData.avgMood ? Math.round((todayData.avgMood / 10) * 10) / 10 : 0;
+    const globalScore = todayData && todayData.avgMood !== null
+      ? Math.round((todayData.avgMood / 10) * 10) / 10
+      : 0;
     const totalCheckins = todayData && todayData.count ? todayData.count : 0;
 
     const causesData = await teamRepository.getTodayCauses({ memberIds, today });
@@ -918,33 +1167,53 @@ const getWeeklySummary = async ({ userId, queryTeamId, weekStart, period = 'week
     ]);
   }
 
-  const moodByDate = {};
-  dailyRows.forEach((row) => {
-    if (row.moodValue !== null && row.moodValue !== undefined) {
-      moodByDate[row.date] = Number(row.moodValue.toFixed(1));
-    }
+  const summary = buildWeeklySummarySnapshot({
+    start,
+    end,
+    period,
+    dailyRows,
+    rawRows
   });
 
-  let moodTotal = 0;
-  let moodCount = 0;
-  rawRows.forEach((row) => {
-    if (row.moodValue !== null && row.moodValue !== undefined) {
-      moodTotal += row.moodValue;
-      moodCount += 1;
-    }
-  });
+  let dashboard;
+  if (period === 'week') {
+    const previousStart = new Date(start);
+    previousStart.setUTCDate(previousStart.getUTCDate() - 7);
+    const previousEnd = new Date(end);
+    previousEnd.setUTCDate(previousEnd.getUTCDate() - 7);
 
-  const stats = createWeeklyStats();
-  const dailyResult = buildPeriodDaily({ period, start, end, moodByDate, stats });
+    let previousDailyRows = [];
+    let previousRawRows = [];
+    if (teamId) {
+      [previousDailyRows, previousRawRows] = await Promise.all([
+        teamRepository.getByDateRange(teamId, toDateOnly(previousStart), toDateOnly(previousEnd)),
+        teamRepository.getByDateRangeWithCauses(teamId, toDateOnly(previousStart), toDateOnly(previousEnd))
+      ]);
+    }
+
+    const previousSummary = buildWeeklySummarySnapshot({
+      start: previousStart,
+      end: previousEnd,
+      period,
+      dailyRows: previousDailyRows,
+      rawRows: previousRawRows
+    });
+
+    dashboard = buildWeeklyDashboard({
+      current: summary.dashboardMetrics,
+      previous: previousSummary.dashboardMetrics
+    });
+  }
 
   return {
     weekStart: rangeStartStr,
     weekEnd: rangeEndStr,
     period,
-    participation: dailyResult.participation,
-    averageMood: moodCount ? Number((moodTotal / moodCount / 10).toFixed(1)) : null,
-    daily: dailyResult.daily,
-    stats
+    participation: summary.participation,
+    averageMood: summary.averageMood,
+    daily: summary.daily,
+    stats: summary.stats,
+    ...(dashboard ? { dashboard } : {})
   };
 };
 
@@ -1013,9 +1282,35 @@ const getWeeklyInsight = async ({ userId, queryTeamId, weekStart }) => {
     };
   }
 
-  const [memberRows, activeMemberCount, dailyRows, rawRows, feedbackCategoryRows] = await Promise.all([
+  const existingInsight = await teamWeeklyReportRepository.getByScope({
+    teamId,
+    weekStart: rangeStartStr,
+    reportType: REPORT_TYPE_WEEKLY_TEAM_INSIGHT
+  });
+
+  if (existingInsight) {
+    return {
+      ...existingInsight.payload,
+      metrics: await enrichTeamInsightMetrics({
+        teamId,
+        start,
+        metrics: {
+          ...EMPTY_INSIGHT_METRICS,
+          ...(existingInsight.payload.metrics || {})
+        }
+      })
+    };
+  }
+
+  const previousStart = new Date(start);
+  previousStart.setUTCDate(previousStart.getUTCDate() - 7);
+  const previousEnd = new Date(end);
+  previousEnd.setUTCDate(previousEnd.getUTCDate() - 7);
+
+  const [memberRows, activeMemberCount, previousActiveMemberCount, dailyRows, rawRows, feedbackCategoryRows] = await Promise.all([
     teamRepository.getMemberIdsByTeam(teamId),
     teamRepository.getActiveMemberCountByDateRange(teamId, rangeStartStr, rangeEndStr),
+    teamRepository.getActiveMemberCountByDateRange(teamId, toDateOnly(previousStart), toDateOnly(previousEnd)),
     teamRepository.getByDateRange(teamId, rangeStartStr, rangeEndStr),
     teamRepository.getByDateRangeWithCauses(teamId, rangeStartStr, rangeEndStr),
     feedbackRepository.getWeeklyCategoryCountsByTeam(teamId, rangeStartStr, rangeEndStr)
@@ -1077,6 +1372,7 @@ const getWeeklyInsight = async ({ userId, queryTeamId, weekStart }) => {
     averageMood: moodCount ? Number((moodTotal / moodCount / 10).toFixed(1)) : null,
     participation: activeMemberCount,
     participationRate: teamSize ? Math.round((activeMemberCount * 100) / teamSize) : 0,
+    previousParticipationRate: teamSize ? Math.round((previousActiveMemberCount * 100) / teamSize) : 0,
     topCauses,
     feedbackCategories,
     daily: publicDaily
@@ -1085,35 +1381,78 @@ const getWeeklyInsight = async ({ userId, queryTeamId, weekStart }) => {
     acc[FEEDBACK_CATEGORY_LABELS[category] || category.toLowerCase()] = count;
     return acc;
   }, {});
-
-  const summaryText = await groqClient.generateTeamWeeklyInsight({
-    weekStart: rangeStartStr,
-    weekEnd: rangeEndStr,
-    metrics,
-    insightContext: {
-      teamSize,
-      moodBand: getMoodBand(metrics.averageMood),
-      topCauseLabels: topCauses.map((cause) => CAUSE_LABELS[cause] || cause.toLowerCase()),
-      feedbackCategoryLabels: feedbackLabels,
-      trend: trendSummary.trend,
-      trendStrength: trendSummary.strength,
-      lowestDay: trendSummary.lowestDay,
-      highestDay: trendSummary.highestDay,
-      trendSummary: trendSummary.summary
-    }
-  });
-
-  return {
+  const insightContext = {
+    teamSize,
+    moodBand: getMoodBand(metrics.averageMood),
+    topCauseLabels: topCauses.map((cause) => CAUSE_LABELS[cause] || cause.toLowerCase()),
+    feedbackCategoryLabels: feedbackLabels,
+    trend: trendSummary.trend,
+    trendStrength: trendSummary.strength,
+    lowestDay: trendSummary.lowestDay,
+    highestDay: trendSummary.highestDay,
+    trendSummary: trendSummary.summary
+  };
+  const payload = {
     weekStart: rangeStartStr,
     weekEnd: rangeEndStr,
     teamId,
     generated: true,
-    summaryText,
+    summaryText: null,
     metrics
   };
+
+  const client = await dbPool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const lockedInsight = await teamWeeklyReportRepository.getByScopeForUpdate({
+      teamId,
+      weekStart: rangeStartStr,
+      reportType: REPORT_TYPE_WEEKLY_TEAM_INSIGHT,
+      client
+    });
+
+    if (lockedInsight) {
+      await client.query('COMMIT');
+      return lockedInsight.payload;
+    }
+
+    payload.summaryText = await groqClient.generateTeamWeeklyInsight({
+      weekStart: rangeStartStr,
+      weekEnd: rangeEndStr,
+      metrics,
+      insightContext
+    });
+
+    await teamWeeklyReportRepository.createReport({
+      id: uuidv4(),
+      teamId,
+      weekStart: rangeStartStr,
+      weekEnd: rangeEndStr,
+      reportType: REPORT_TYPE_WEEKLY_TEAM_INSIGHT,
+      payload: serializeTeamInsightPayload(payload),
+      generationCount: 1,
+      generatedAt: new Date().toISOString(),
+      createdByUserId: userId,
+      updatedByUserId: userId,
+      client
+    });
+
+    await client.query('COMMIT');
+    return payload;
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('Erreur lors du rollback team weekly insight:', rollbackErr.message);
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 };
 
-const getWeeklyAnalysisReport = async ({ userId, userRole, queryTeamId, weekStart }) => {
+const getWeeklyAnalysisReport = async ({ userId, userRole, queryTeamId, weekStart, forceRegenerate = false }) => {
   assertValidWeekStart(weekStart);
   const period = 'week';
   const { start, end } = getPeriodRange({ period, weekStart });
@@ -1122,7 +1461,36 @@ const getWeeklyAnalysisReport = async ({ userId, userRole, queryTeamId, weekStar
   const teamId = await resolveTeamIdForAnalysisReport({ userId, userRole, queryTeamId });
 
   if (!teamId) {
-    return buildEmptyAnalysisReport({ weekStart: rangeStartStr, weekEnd: rangeEndStr, teamId: null });
+    return attachAnalysisReportMeta({
+      payload: buildEmptyAnalysisReport({ weekStart: rangeStartStr, weekEnd: rangeEndStr, teamId: null }),
+      fromCache: false,
+      generationCount: 0,
+      generatedAt: null,
+      canRegenerate: false
+    });
+  }
+
+  const existingReport = await teamWeeklyReportRepository.getByScope({
+    teamId,
+    weekStart: rangeStartStr
+  });
+
+  if (existingReport && !forceRegenerate) {
+    return attachAnalysisReportMeta({
+      payload: existingReport.payload,
+      fromCache: true,
+      generationCount: existingReport.generationCount,
+      generatedAt: existingReport.generatedAt
+    });
+  }
+
+  if (existingReport && existingReport.generationCount >= WEEKLY_REPORT_GENERATION_LIMIT) {
+    return attachAnalysisReportMeta({
+      payload: existingReport.payload,
+      fromCache: true,
+      generationCount: existingReport.generationCount,
+      generatedAt: existingReport.generatedAt
+    });
   }
 
   const [memberRows, activeMemberCount, dailyRows, rawRows, feedbackCategoryRows] = await Promise.all([
@@ -1134,7 +1502,13 @@ const getWeeklyAnalysisReport = async ({ userId, userRole, queryTeamId, weekStar
   ]);
 
   if (rawRows.length === 0) {
-    return buildEmptyAnalysisReport({ weekStart: rangeStartStr, weekEnd: rangeEndStr, teamId });
+    return attachAnalysisReportMeta({
+      payload: buildEmptyAnalysisReport({ weekStart: rangeStartStr, weekEnd: rangeEndStr, teamId }),
+      fromCache: false,
+      generationCount: 0,
+      generatedAt: null,
+      canRegenerate: false
+    });
   }
 
   const feedbackCategories = {};
@@ -1204,33 +1578,119 @@ const getWeeklyAnalysisReport = async ({ userId, userRole, queryTeamId, weekStar
     trendSummary
   });
 
-  const llmReport = await groqClient.generateTeamWeeklyAnalysisReport({
-    context: analysisContext,
-    actionCatalog,
-    activityCatalog
-  });
-  const normalized = normalizeAnalysisReport({ llmReport, context: analysisContext });
+  const client = await dbPool.connect();
+  try {
+    await client.query('BEGIN');
 
-  return {
-    weekStart: rangeStartStr,
-    weekEnd: rangeEndStr,
-    teamId,
-    generated: true,
-    overview: {
-      moodBand: analysisContext.moodBand,
-      averageMood: metrics.averageMood,
-      participationRate: metrics.participationRate,
-      trend: analysisContext.trend,
-      trendStrength: analysisContext.trendStrength
-    },
-    strengths: normalized.strengths,
-    weaknesses: normalized.weaknesses,
-    recommendedActions: normalized.recommendedActions,
-    teamActivities: normalized.teamActivities
+    const lockedReport = await teamWeeklyReportRepository.getByScopeForUpdate({
+      teamId,
+      weekStart: rangeStartStr,
+      client
+    });
+
+    if (lockedReport && !forceRegenerate) {
+      await client.query('COMMIT');
+      return attachAnalysisReportMeta({
+        payload: lockedReport.payload,
+        fromCache: true,
+        generationCount: lockedReport.generationCount,
+        generatedAt: lockedReport.generatedAt
+      });
+    }
+
+    if (lockedReport && lockedReport.generationCount >= WEEKLY_REPORT_GENERATION_LIMIT) {
+      await client.query('COMMIT');
+      return attachAnalysisReportMeta({
+        payload: lockedReport.payload,
+        fromCache: true,
+        generationCount: lockedReport.generationCount,
+        generatedAt: lockedReport.generatedAt
+      });
+    }
+
+    const llmReport = await groqClient.generateTeamWeeklyAnalysisReport({
+      context: analysisContext,
+      actionCatalog,
+      activityCatalog
+    });
+    const normalized = normalizeAnalysisReport({ llmReport, context: analysisContext });
+    const payload = {
+      weekStart: rangeStartStr,
+      weekEnd: rangeEndStr,
+      teamId,
+      generated: true,
+      overview: {
+        moodBand: analysisContext.moodBand,
+        averageMood: metrics.averageMood,
+        participationRate: metrics.participationRate,
+        trend: analysisContext.trend,
+        trendStrength: analysisContext.trendStrength
+      },
+      strengths: normalized.strengths,
+      weaknesses: normalized.weaknesses,
+      recommendedActions: normalized.recommendedActions,
+      teamActivities: normalized.teamActivities
+    };
+
+    const generatedAt = new Date().toISOString();
+
+    if (!lockedReport) {
+      await teamWeeklyReportRepository.createReport({
+        id: uuidv4(),
+        teamId,
+        weekStart: rangeStartStr,
+        weekEnd: rangeEndStr,
+        payload: serializeAnalysisReportPayload(payload),
+        generationCount: 1,
+        generatedAt,
+        createdByUserId: userId,
+        updatedByUserId: userId,
+        client
+      });
+      await client.query('COMMIT');
+      return attachAnalysisReportMeta({
+        payload,
+        fromCache: false,
+        generationCount: 1,
+        generatedAt
+      });
+    }
+
+    const nextGenerationCount = lockedReport.generationCount + 1;
+    await teamWeeklyReportRepository.updateReport({
+      reportId: lockedReport.id,
+      weekEnd: rangeEndStr,
+      payload: serializeAnalysisReportPayload(payload),
+      generationCount: nextGenerationCount,
+      generatedAt,
+      updatedByUserId: userId,
+      client
+    });
+    await client.query('COMMIT');
+
+    return attachAnalysisReportMeta({
+      payload,
+      fromCache: false,
+      generationCount: nextGenerationCount,
+      generatedAt
+    });
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('Erreur lors du rollback report cache:', rollbackErr.message);
+    }
+    throw err;
+  } finally {
+    client.release();
   };
 };
 
-const createTeam = async ({ name, organizationId, userOrganizationId }) => {
+const createTeam = async ({ name, organizationId, userOrganizationId, userRole }) => {
+  if (!['manager', 'admin'].includes(userRole)) {
+    throw new AppError('Forbidden: manager or admin role required', 403, 'FORBIDDEN');
+  }
+
   if (!name) {
     throw new AppError('name is required', 400, 'VALIDATION_ERROR');
   }
@@ -1250,7 +1710,11 @@ const createTeam = async ({ name, organizationId, userOrganizationId }) => {
   };
 };
 
-const addMember = async ({ teamId, userId }) => {
+const addMember = async ({ teamId, userId, userRole }) => {
+  if (!['manager', 'admin'].includes(userRole)) {
+    throw new AppError('Forbidden: manager or admin role required', 403, 'FORBIDDEN');
+  }
+
   if (!teamId) {
     throw new AppError('teamId is required', 400, 'VALIDATION_ERROR');
   }

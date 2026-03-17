@@ -64,7 +64,7 @@ router.get('/today', authenticate, checkinController.getTodayCheckin);
  *             comment: Super journée!
  *             timestamp: "2026-01-30T11:00:00Z"
  *     responses:
- *       200:
+ *       201:
  *         description: Check-in saved
  *         content:
  *           application/json:
@@ -80,6 +80,8 @@ router.get('/today', authenticate, checkinController.getTodayCheckin);
  *         description: Invalid input
  *       401:
  *         description: Unauthorized
+ *       409:
+ *         description: A check-in already exists for that date
  *       500:
  *         description: Server error
  */
@@ -153,6 +155,7 @@ router.get('/history', authenticate, validate(checkinSchemas.history), checkinCo
  *         required: false
  *         schema:
  *           type: string
+ *           pattern: "^\\d{4}(-\\d{2}(-\\d{2})?)?$"
  *         description: Date reference (YYYY-MM-DD for week, YYYY-MM for month, YYYY for year)
  *     responses:
  *       200:
@@ -215,6 +218,7 @@ router.get('/weekly-summary', authenticate, validate(checkinSchemas.weeklySummar
  *         required: false
  *         schema:
  *           type: string
+ *           pattern: "^\\d{4}(-\\d{2}(-\\d{2})?)?$"
  *         description: Date reference (YYYY-MM-DD for week, YYYY-MM for month, YYYY for year)
  *     responses:
  *       200:

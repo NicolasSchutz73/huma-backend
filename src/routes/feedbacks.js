@@ -17,6 +17,16 @@ const feedbackSchemas = require('../validators/feedbackSchemas');
  *     responses:
  *       200:
  *         description: Feedback list
+ *         content:
+ *           application/json:
+ *             example:
+ *               - id: 1d1f5fd8-8e2a-4df6-9960-2e32a95ef0e9
+ *                 category: ORGANIZATION
+ *                 date: "2026-03-10"
+ *                 status: pending
+ *                 feedbackText: Les priorités changent trop souvent.
+ *                 solutionText: Clarifier les arbitrages du lundi.
+ *                 isAnonymous: true
  *       401:
  *         description: Unauthorized
  *       500:
@@ -36,6 +46,15 @@ router.get('/', authenticate, feedbackController.listPublicFeedbacks);
  *     responses:
  *       200:
  *         description: Feedback list for current user
+ *         content:
+ *           application/json:
+ *             example:
+ *               - id: 1d1f5fd8-8e2a-4df6-9960-2e32a95ef0e9
+ *                 category: ORGANIZATION
+ *                 date: "2026-03-10"
+ *                 status: pending
+ *                 preview: Les priorités changent trop so...
+ *                 isAnonymous: true
  *       401:
  *         description: Unauthorized
  *       500:
@@ -69,9 +88,23 @@ router.get('/mine', authenticate, feedbackController.getFeedbacks);
  *                 type: string
  *                 enum: [pending, vu, en_cours, resolu, archive]
  *             required: [status]
+ *           example:
+ *             status: resolu
  *     responses:
  *       200:
  *         description: Feedback status updated
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Statut du feedback mis à jour
+ *               feedback:
+ *                 id: 1d1f5fd8-8e2a-4df6-9960-2e32a95ef0e9
+ *                 category: ORGANIZATION
+ *                 date: "2026-03-10"
+ *                 status: resolu
+ *                 feedbackText: Les priorités changent trop souvent.
+ *                 solutionText: Clarifier les arbitrages du lundi.
+ *                 isAnonymous: true
  *       400:
  *         description: Invalid input
  *       401:
@@ -116,9 +149,25 @@ router.patch(
  *               isAnonymous:
  *                 type: boolean
  *             required: [category, feedbackText, solutionText]
+ *           example:
+ *             category: ORGANIZATION
+ *             feedbackText: "Les priorités changent trop souvent dans la semaine."
+ *             solutionText: "Partager un ordre des priorités en début de sprint."
+ *             isAnonymous: true
  *     responses:
- *       200:
+ *       201:
  *         description: Feedback created
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Feedback créé avec succès
+ *               feedback:
+ *                 id: 1d1f5fd8-8e2a-4df6-9960-2e32a95ef0e9
+ *                 category: ORGANIZATION
+ *                 feedbackText: Les priorités changent trop souvent.
+ *                 solutionText: Clarifier les arbitrages du lundi.
+ *                 status: pending
+ *                 isAnonymous: true
  *       400:
  *         description: Invalid input
  *       401:
